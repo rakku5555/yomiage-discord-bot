@@ -1,0 +1,23 @@
+[project]
+name = "yomiage-discord-bot"
+version = "1.0.0"
+description = "Reads out the text channel of the discord"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "aiofiles>=24.1.0",
+    "aiosqlite>=0.21.0",
+    "asyncmy>=0.2.10",
+    "discord-py[voice]>=2.5.2",
+    "kanalizer>=0.1.1",
+    "loguru>=0.7.3",
+    "pyyaml>=6.0.2",
+    "redis[hiredis]>=6.2.0",
+    "voicevox_core; platform_system == 'Windows' or platform_system == 'Linux'",
+]
+
+[tool.uv.sources]
+voicevox_core = [
+  { url = "https://github.com/VOICEVOX/voicevox_core/releases/download/0.16.0/voicevox_core-0.16.0-cp310-abi3-win_amd64.whl", marker = "platform_system == 'Windows'" },
+  { url = "https://github.com/VOICEVOX/voicevox_core/releases/download/0.16.0/voicevox_core-0.16.0-cp310-abi3-manylinux_2_34_x86_64.whl", marker = "platform_system == 'Linux'" },
+]

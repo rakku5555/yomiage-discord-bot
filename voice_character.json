@@ -1,0 +1,49 @@
+{
+    "AquesTalk1": [
+        {"name": "女声1 (f1)", "value": "f1"},
+        {"name": "女声2 (f2)", "value": "f2"},
+        {"name": "男声1 (m1)", "value": "m1"},
+        {"name": "男声2 (m2)", "value": "m2"},
+        {"name": "中性 (imd1)", "value": "imd1"},
+        {"name": "機械1 (jgr)", "value": "jgr"},
+        {"name": "機械2 (dvd)", "value": "dvd"},
+        {"name": "ロボット (r1)", "value": "r1"}
+    ],
+    "AquesTalk2": [
+        {"name": "F1C女声 (aq_f1c)", "value": "aq_f1c"},
+        {"name": "F3A女声 (aq_f3a)", "value": "aq_f3a"},
+        {"name": "huskey (aq_huskey)", "value": "aq_huskey"},
+        {"name": "M4B男声 (aq_m4b)", "value": "aq_m4b"},
+        {"name": "MF1中性的 (aq_mf1)", "value": "aq_mf1"},
+        {"name": "RB2ロボット (aq_rb2)", "value": "aq_rb2"},
+        {"name": "RB3ロボット (aq_rb3)", "value": "aq_rb3"},
+        {"name": "RM女声 (aq_rm)", "value": "aq_rm"},
+        {"name": "ROBOロボット (aq_robo)", "value": "aq_robo"},
+        {"name": "yukkuri (aq_yukkuri)", "value": "aq_yukkuri"},
+        {"name": "F4女声 (ar_f4)", "value": "ar_f4"},
+        {"name": "M5男声 (ar_m5)", "value": "ar_m5"},
+        {"name": "MF2機械声 (ar_mf2)", "value": "ar_mf2"},
+        {"name": "RM3女声 (ar_rm3)", "value": "ar_rm3"}
+    ],
+    "voicevox": [
+        {"name": "四国めたん", "value": "0"},
+        {"name": "ずんだもん", "value": "4"},
+        {"name": "春日部つむぎ", "value": "8"},
+        {"name": "波音リツ", "value": "9"},
+        {"name": "青山龍星", "value": "13"},
+        {"name": "冥鳴ひまり", "value": "14"},
+        {"name": "九州そら", "value": "15"},
+        {"name": "もち子さん", "value": "20"},
+        {"name": "剣崎雌雄", "value": "21"},
+        {"name": "白上虎太郎", "value": "12"},
+        {"name": "ちび式じい", "value": "42"},
+        {"name": "櫻歌ミコ", "value": "43"},
+        {"name": "小夜", "value": "46"},
+        {"name": "満別花丸", "value": "69"},
+        {"name": "琴詠ニア", "value": "74"},
+        {"name": "中部つるぎ", "value": "94"}
+    ],
+    "aivisspeech": [
+        {"name": "Anneli", "value": "888753760"}
+    ]
+}

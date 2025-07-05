@@ -1,0 +1,30 @@
+debug: false
+discord:
+    token: null
+    max_length: 300
+database:
+    connection: sqlite
+    host: localhost
+    port: 3306
+    user: root
+    password: password
+    database: bot.db
+redis:
+    host: localhost
+    port: 6379
+    db: 0
+    passwd: null
+engine_enabled:
+    aquestalk1: false
+    aquestalk2: false
+    voicevox: true
+    aivisspeech: false
+voicevox:
+    edition:
+        core: true
+        engine: false
+    url: http://localhost:50021
+aivisspeech:
+    url: http://localhost:10101
+aqkanji2koe:
+    dev_key: null
