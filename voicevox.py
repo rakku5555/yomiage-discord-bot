@@ -46,7 +46,7 @@ class voicevox:
     @classmethod
     async def init(cls) -> None:
         if cls._instance is None:
-            cls._instance = cls('', 0)
+            cls._instance = cls('', 0, 100, 1.0)
 
         if not cls._initialized:
             if cls._synthesizer is None:
