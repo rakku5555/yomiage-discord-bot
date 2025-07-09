@@ -3,6 +3,7 @@ import discord
 import io
 import kanalizer
 import re
+import romaji_converter
 import time
 import warnings
 from aivisspeech import aivisspeech
@@ -26,12 +27,17 @@ async def speak_in_voice_channel(voice_client: discord.VoiceClient, message: str
     if not voice_client.is_connected():
         return
 
+    message = romaji_converter.romaji_to_hiragana(message.lower())
+
     words = re.findall(r'[a-z]+', message.lower())
     for word in words:
         if engine == 'voicevox':
             break
         converted = kana_convert(word)
         message = message.replace(word, converted)
+
+    if engine.startswith('aquestalk'):
+        message = text_to_speech().convert(message)
 
     if debug:
         logger.debug(f"音声合成開始: {message} - 使用する音声合成エンジン: {engine}")
@@ -162,9 +168,6 @@ async def read_message(message: str | discord.Message, guild: discord.Guild = No
 
     if len(message) >= config['discord']['max_length']:
         message = message[:config['discord']['max_length']] + '。以下省略'
-
-    if engine.startswith('aquestalk'):
-        message = text_to_speech().convert(message)
 
     await message_queues[guild.id].put((message, voice_name, pitch, speed, voice_client, engine))
 
