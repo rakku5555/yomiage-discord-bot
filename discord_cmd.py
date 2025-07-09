@@ -1,5 +1,6 @@
 import discord
 import json
+import random
 from config import Config
 from database import Database
 from discord import app_commands
@@ -204,7 +205,9 @@ def setup_commands(tree: app_commands.CommandTree):
             for voice in voices
             if current.lower() in voice['name'].lower()
         ]
-        return choices[:25]
+        if len(choices) > 25:
+            choices = random.sample(choices, 25)
+        return choices
 
     @tree.command(name='skip', description='現在の読み上げをすべてスキップします')
     async def skip(interaction: discord.Interaction):
