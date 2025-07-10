@@ -60,7 +60,11 @@
         {"name": "ぞん子", "value": "90"},
         {"name": "中部つるぎ", "value": "94"},
         {"name": "離途", "value": "99"},
-        {"name": "黒沢冴白", "value": "100"}
+        {"name": "黒沢冴白", "value": "100"},
+        {"name": "ユーレイちゃん", "value": "102"},
+        {"name": "東北ずん子", "value": "107"},
+        {"name": "東北きりたん", "value": "108"},
+        {"name": "東北イタコ", "value": "109"}
     ],
     "aivisspeech": [
         {"name": "Anneli", "value": "888753760"}
