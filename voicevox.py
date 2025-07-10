@@ -95,7 +95,7 @@ class voicevox:
             return wav
 
         except Exception as e:
-            raise RuntimeError(e)
+            raise e
 
     async def _get_engine(self) -> bytes:
         async with aiohttp.ClientSession(self.url) as session:

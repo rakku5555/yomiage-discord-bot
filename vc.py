@@ -1,3 +1,4 @@
+import aiohttp
 import asyncio
 import discord
 import io
@@ -64,7 +65,11 @@ async def speak_in_voice_channel(voice_client: discord.VoiceClient, message: str
             case _:
                 raise ValueError(f"無効なエンジン: {engine}")
 
-        audio_data = await audio.get_audio()
+        try:
+            audio_data = await audio.get_audio()
+        except aiohttp.client_exceptions.ClientConnectorError as e:
+            audio_data = await aquestalk1(text_to_speech().convert(message), 'f1', 100).get_audio()
+
         if engine.startswith('aquestalk'):
             audio_data = await pitch_convert(audio_data, pitch)
 
