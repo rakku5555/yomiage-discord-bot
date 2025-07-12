@@ -36,7 +36,7 @@ class text_to_speech:
         self.aq_kanji2koe.AqKanji2Koe_Release.restype = None
 
         match self.system:
-            case 'windos':
+            case 'windows':
                 self.aq_kanji2koe.AqKanji2Koe_Convert_utf8.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int]
                 self.aq_kanji2koe.AqKanji2Koe_Convert_utf8.restype = ctypes.c_int
             case 'linux':
