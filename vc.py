@@ -133,9 +133,8 @@ async def read_message(message: str | discord.Message, guild: discord.Guild = No
     if voice_client is None or not voice_client.is_connected():
         return
 
-    dictionary_replacements = await db.get_dictionary_replacements(guild.id)
-    for original, replacement in dictionary_replacements.items():
-        message = message.replace(original, replacement)
+    message = apply_replacements(message, await db.get_dictionary_replacements(guild.id))
+    message = apply_replacements(message, await db.get_global_dictionary_replacements())
 
     voice_settings = current_voice_settings.get((guild.id, author.id))
     if voice_settings is None and author:
@@ -207,3 +206,8 @@ def kana_convert(word: str) -> str:
             return kanalizer.convert(word)
         except kanalizer.IncompleteConversionWarning:
             return word
+
+def apply_replacements(message: str, replacements: dict) -> str:
+    for original, replacement in replacements.items():
+        message = message.replace(original, replacement)
+    return message

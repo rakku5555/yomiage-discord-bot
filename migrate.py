@@ -32,6 +32,14 @@ async def create_tables_sqlite(db_instance) -> None:
         """)
 
         await cursor.execute("""
+            CREATE TABLE IF NOT EXISTS global_dictionary_replacements (
+                original_text TEXT NOT NULL,
+                replacement_text TEXT NOT NULL,
+                PRIMARY KEY original_text
+            )
+        """)
+
+        await cursor.execute("""
             CREATE TABLE IF NOT EXISTS muted_users (
                 server_id INTEGER NOT NULL,
                 user_id INTEGER NOT NULL,
@@ -106,6 +114,23 @@ async def create_tables_mysql(db_instance) -> None:
                         original_text VARCHAR(255) NOT NULL,
                         replacement_text VARCHAR(255) NOT NULL,
                         PRIMARY KEY (server_id, original_text)
+                    )
+                """)
+
+            await cursor.execute("""
+                SELECT COUNT(*)
+                FROM information_schema.tables
+                WHERE table_schema = %s
+                AND table_name = 'global_dictionary_replacements'
+            """, (db_instance.config['database']['database'],))
+            table_exists = await cursor.fetchone()
+
+            if not table_exists[0]:
+                await cursor.execute("""
+                    CREATE TABLE global_dictionary_replacements (
+                        original_text VARCHAR(255) NOT NULL,
+                        replacement_text VARCHAR(255) NOT NULL,
+                        PRIMARY KEY (original_text)
                     )
                 """)
 

@@ -229,6 +229,60 @@ class Database:
                         WHERE server_id = %s AND original_text = %s
                     """, (server_id, original_text))
                     await conn.commit()
+    
+    async def set_global_dictionary_replacement(self, original_text: str, replacement_text: str) -> None:
+        if self.config['database']['connection'] == 'sqlite':
+            async with self.connection.cursor() as cursor:
+                await cursor.execute("""
+                    INSERT OR REPLACE INTO global_dictionary_replacements (original_text, replacement_text)
+                    VALUES (?, ?)
+                """, (original_text, replacement_text))
+                await self.connection.commit()
+        elif self.config['database']['connection'] in ['mysql', 'mariadb']:
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cursor:
+                    await cursor.execute("""
+                        INSERT INTO global_dictionary_replacements (original_text, replacement_text)
+                        VALUES (%s, %s)
+                        ON DUPLICATE KEY UPDATE replacement_text = %s
+                    """, (original_text, replacement_text, replacement_text))
+                    await conn.commit()
+
+    async def get_global_dictionary_replacements(self) -> dict[str, str]:
+        if self.config['database']['connection'] == 'sqlite':
+            async with self.connection.cursor() as cursor:
+                await cursor.execute("""
+                    SELECT original_text, replacement_text 
+                    FROM global_dictionary_replacements
+                """)
+                rows = await cursor.fetchall()
+                return {row[0]: row[1] for row in rows}
+        elif self.config['database']['connection'] in ['mysql', 'mariadb']:
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cursor:
+                    await cursor.execute("""
+                        SELECT original_text, replacement_text 
+                        FROM global_dictionary_replacements
+                    """)
+                    rows = await cursor.fetchall()
+                    return {row[0]: row[1] for row in rows}
+
+    #async def remove_global_dictionary_replacement(self, original_text: str) -> None:
+    #    if self.config['database']['connection'] == 'sqlite':
+    #        async with self.connection.cursor() as cursor:
+    #            await cursor.execute("""
+    #                DELETE FROM global_dictionary_replacements 
+    #                WHERE original_text = ?
+    #            """, (original_text))
+    #            await self.connection.commit()
+    #    elif self.config['database']['connection'] in ['mysql', 'mariadb']:
+    #        async with self.pool.acquire() as conn:
+    #            async with conn.cursor() as cursor:
+    #                await cursor.execute("""
+    #                    DELETE FROM global_dictionary_replacements 
+    #                    WHERE original_text = %s
+    #                """, (original_text))
+    #                await conn.commit()
 
     async def set_muted_user(self, server_id: int, user_id: int) -> None:
         if self.config['database']['connection'] == 'sqlite':

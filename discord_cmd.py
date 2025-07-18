@@ -245,7 +245,7 @@ def setup_commands(tree: app_commands.CommandTree):
             await db.set_dictionary_replacement(interaction.guild_id, word, to)
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.blue(), description=f"単語を登録しました。\n「{word}」→「{to}」"))
         except Exception as e:
-            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f"単語の登録に失敗しました: {str(e)}"), ephemeral=True)
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f"単語の登録に失敗しました: {str(e)}"))
 
     @dict_group.command(name='list', description='登録されている単語の一覧を表示します')
     async def dict_list(interaction: discord.Interaction):
@@ -264,7 +264,7 @@ def setup_commands(tree: app_commands.CommandTree):
 
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.purple(), description=message), ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f"単語一覧の取得に失敗しました: {str(e)}"), ephemeral=True)
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f"単語一覧の取得に失敗しました: {str(e)}"))
 
     @dict_group.command(name='remove', description='登録されている単語を削除します')
     @app_commands.describe(word='削除する単語')
@@ -280,9 +280,43 @@ def setup_commands(tree: app_commands.CommandTree):
             await db.remove_dictionary_replacement(interaction.guild_id, word)
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.purple(), description=f"単語「{word}」を削除しました。"))
         except Exception as e:
-            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f"単語の削除に失敗しました: {str(e)}"), ephemeral=True)
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f"単語の削除に失敗しました: {str(e)}"))
 
     tree.add_command(dict_group)
+
+    global_dict_group = app_commands.Group(name='global_dict', description='グローバル辞書機能の設定')
+
+    @global_dict_group.command(name='add', description='グローバル単語の読み方を登録します')
+    @app_commands.describe(word='登録する単語', to='変換後の読み方')
+    async def dict_add(interaction: discord.Interaction, word: str, to: str):
+        await ensure_db_connection()
+
+        try:
+            await db.set_global_dictionary_replacement(word, to)
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.blue(), description=f"単語を登録しました。\n「{word}」→「{to}」"))
+        except Exception as e:
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f"単語の登録に失敗しました: {str(e)}"))
+
+    @global_dict_group.command(name='list', description='グローバル登録されている単語の一覧を表示します')
+    async def dict_list(interaction: discord.Interaction):
+        await ensure_db_connection()
+
+        try:
+            replacements = await db.get_global_dictionary_replacements()
+
+            if not replacements:
+                await interaction.response.send_message(embed=discord.Embed(color=discord.Color.dark_orange(), description='登録されている単語はありません。'), ephemeral=True)
+                return
+
+            message = "登録されている単語一覧:\n"
+            for original, replacement in replacements.items():
+                message += f"- 「{original}」→「{replacement}」\n"
+
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.purple(), description=message), ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f"単語一覧の取得に失敗しました: {str(e)}"))
+
+    tree.add_command(global_dict_group)
 
     @tree.command(name='mute', description='特定のユーザーのメッセージを読み上げません')
     @app_commands.describe(user='読み上げを停止するユーザー')
@@ -301,7 +335,7 @@ def setup_commands(tree: app_commands.CommandTree):
             await db.set_muted_user(interaction.guild_id, user.id)
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.green(), description=f'{user.name}のメッセージを読み上げないように設定しました。'))
         except Exception as e:
-            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f'ミュート設定に失敗しました: {str(e)}'), ephemeral=True)
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f'ミュート設定に失敗しました: {str(e)}'))
 
     @tree.command(name='unmute', description='ミュートされたユーザーのメッセージを読み上げるようにします')
     @app_commands.describe(user='読み上げを再開するユーザー')
@@ -316,7 +350,7 @@ def setup_commands(tree: app_commands.CommandTree):
             await db.remove_muted_user(interaction.guild_id, user.id)
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.green(), description=f'{user.name}のメッセージを読み上げるように設定しました。'))
         except Exception as e:
-            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f'ミュート解除に失敗しました: {str(e)}'), ephemeral=True)
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f'ミュート解除に失敗しました: {str(e)}'))
 
     @tree.command(name='mutelist', description='ミュートされているユーザーの一覧を表示します')
     async def mutelist(interaction: discord.Interaction):
@@ -336,7 +370,7 @@ def setup_commands(tree: app_commands.CommandTree):
 
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.purple(), description=message), ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f'ミュートユーザー一覧の取得に失敗しました: {str(e)}'), ephemeral=True)
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f'ミュートユーザー一覧の取得に失敗しました: {str(e)}'))
 
     dynamic_group = app_commands.Group(name='dynamic_join', description='動的自動参加の設定')
 
@@ -351,7 +385,7 @@ def setup_commands(tree: app_commands.CommandTree):
             await db.set_dynamic_join(interaction.guild_id, text.id)
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.green(), description=f'動的自動参加の設定を追加しました。\nテキストチャンネル: {text.mention}'))
         except Exception as e:
-            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f'動的自動参加の設定に失敗しました: {str(e)}'), ephemeral=True)
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f'動的自動参加の設定に失敗しました: {str(e)}'))
 
     @dynamic_group.command(name='remove', description='動的自動参加の設定を削除します')
     @app_commands.describe(
@@ -364,7 +398,7 @@ def setup_commands(tree: app_commands.CommandTree):
             await db.remove_dynamic_join(interaction.guild_id, text.id)
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.green(), description=f'動的自動参加の設定を削除しました。\nテキストチャンネル: {text.mention}'))
         except Exception as e:
-            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f'動的自動参加の設定の削除に失敗しました: {str(e)}'), ephemeral=True)
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f'動的自動参加の設定の削除に失敗しました: {str(e)}'))
 
     @dynamic_group.command(name='list', description='動的自動参加の設定一覧を表示します')
     async def dynamic_join_list(interaction: discord.Interaction):
@@ -384,7 +418,7 @@ def setup_commands(tree: app_commands.CommandTree):
 
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.purple(), description=message), ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f'動的自動参加の設定一覧の取得に失敗しました: {str(e)}'), ephemeral=True)
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f'動的自動参加の設定一覧の取得に失敗しました: {str(e)}'))
 
     tree.add_command(dynamic_group)
 
@@ -396,7 +430,7 @@ def setup_commands(tree: app_commands.CommandTree):
             await db.set_read_channel(interaction.guild_id, interaction.channel_id)
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.green(), description='読み上げるテキストチャンネルを変更しました。'))
         except Exception as e:
-            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f'読み上げるテキストチャンネルの変更に失敗しました: {str(e)}'), ephemeral=True)
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f'読み上げるテキストチャンネルの変更に失敗しました: {str(e)}'))
 
 def validate_voice_engine(engine: str, voice: str, config: dict, voice_characters: dict) -> tuple[bool, str]:
     if not config['engine_enabled'][engine]:
