@@ -140,7 +140,7 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
     if chat_channel_id:
         chat_channel = voice_client.guild.get_channel(chat_channel_id)
         if chat_channel:
-            await chat_channel.send(embed=discord.Embed(color=discord.Color.dark_blue(), description='ボイスチャットからユーザーがいなくなったため退出しました'))
+            await chat_channel.send(embed=discord.Embed(color=discord.Color.dark_blue(), description=f"{voice_client.channel.mention}からユーザーがいなくなったため退出しました"))
 
     await db.remove_read_channel(voice_client.guild.id)
     if debug:
@@ -165,7 +165,7 @@ async def connect_to_voice_channel(guild: discord.Guild, voice_channel: discord.
         await db.set_read_channel(guild.id, voice_channel.id, text_channel_id)
         chat_channel = guild.get_channel(text_channel_id)
         if chat_channel:
-            await chat_channel.send(embed=discord.Embed(color=discord.Color.dark_blue(), description=f"{member.mention}が参加したためボイスチャンネルに接続しました"))
+            await chat_channel.send(embed=discord.Embed(color=discord.Color.dark_blue(), description=f"{member.mention}が参加したため{voice_channel.mention}に接続しました"))
         if debug:
             logger.debug(f"{guild.name}の自動参加に成功しました")
     except Exception as e:

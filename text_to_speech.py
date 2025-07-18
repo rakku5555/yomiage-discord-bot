@@ -43,8 +43,8 @@ class text_to_speech:
                 self.aq_kanji2koe.AqKanji2Koe_Convert.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int]
                 self.aq_kanji2koe.AqKanji2Koe_Convert.restype = ctypes.c_int
 
-        if Config.load_config()['aqkanji2koe']['dev_key'] is not None:
-            self.aq_kanji2koe.AqKanji2Koe_SetDevKey(Config.load_config()['aqkanji2koe']['dev_key'].encode('utf-8'))
+        if Config.load_config()['dev_key']['aqkanji2koe'] is not None:
+            self.aq_kanji2koe.AqKanji2Koe_SetDevKey(Config.load_config()['dev_key']['aqkanji2koe'].encode())
         self._initialized = True
 
     def convert(self, message: str) -> str:
@@ -56,14 +56,14 @@ class text_to_speech:
         try:
             if self.system == 'windows':
                 output_buffer = ctypes.create_string_buffer(4096)
-                result = self.aq_kanji2koe.AqKanji2Koe_Convert_utf8(instance, message.encode('utf-8'), output_buffer, 4096)
+                result = self.aq_kanji2koe.AqKanji2Koe_Convert_utf8(instance, message.encode(), output_buffer, 4096)
                 if result == 0:
                     return output_buffer.value.decode('utf-8')
                 else:
                     raise Exception(f"変換に失敗しました。エラーコード: {result}")
             elif self.system == 'linux':
                 output_buffer = ctypes.create_string_buffer(4096)
-                result = self.aq_kanji2koe.AqKanji2Koe_Convert(instance, message.encode('utf-8'), output_buffer, 4096)
+                result = self.aq_kanji2koe.AqKanji2Koe_Convert(instance, message.encode(), output_buffer, 4096)
                 if result == 0:
                     return output_buffer.value.decode('utf-8')
                 else:

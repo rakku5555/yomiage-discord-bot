@@ -17,6 +17,7 @@ redis:
 engine_enabled:
     aquestalk1: false
     aquestalk2: false
+    aquestalk10: false
     voicevox: true
     aivisspeech: false
 voicevox:
@@ -26,5 +27,6 @@ voicevox:
     url: http://localhost:50021
 aivisspeech:
     url: http://localhost:10101
-aqkanji2koe:
-    dev_key: null
+dev_key:
+    aqkanji2koe: null
+    aquestalk10: null

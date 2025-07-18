@@ -11,6 +11,7 @@ db = Database()
 engine_key = {
     'aquestalk1': 'AquesTalk1',
     'aquestalk2': 'AquesTalk2',
+    'aquestalk10': 'AquesTalk10',
     'voicevox': 'voicevox',
     'aivisspeech': 'aivisspeech'
 }
@@ -31,11 +32,11 @@ def setup_commands(tree: app_commands.CommandTree):
         voice_channel = interaction.user.voice.channel
         try:
             await voice_channel.connect(self_deaf=True)
-            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.green(), description=f"{voice_channel.name}に参加しました！このチャンネルのメッセージを読み上げます。"))
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.green(), description=f"{voice_channel.mention}に参加しました！このチャンネルのメッセージを読み上げます。"))
 
             await db.set_read_channel(interaction.guild_id, voice_channel.id, interaction.channel_id)
         except discord.ClientException:
-            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description='すでにボイスチャンネルに接続しています。'), ephemeral=True)
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f"すでに{voice_channel.mention}に接続しています。"), ephemeral=True)
 
     @tree.command(name='leave', description='ボイスチャンネルから退出')
     async def leave(interaction: discord.Interaction):
@@ -69,7 +70,7 @@ def setup_commands(tree: app_commands.CommandTree):
 
         try:
             await db.set_autojoin(interaction.guild_id, voice.id, text.id)
-            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.green(), description=f"自動参加設定を更新しました。\n"f"ボイスチャンネル: {voice.name}\n"f"テキストチャンネル: {text.name}"))
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.green(), description=f"自動参加設定を更新しました。\n"f"ボイスチャンネル: {voice.mention}\n"f"テキストチャンネル: {text.mention}"))
         except Exception as e:
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f"設定の更新に失敗しました: {str(e)}"))
 
@@ -85,11 +86,11 @@ def setup_commands(tree: app_commands.CommandTree):
                 return
 
             if voice.id != autojoin[0]:
-                await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f'指定されたボイスチャンネル {voice.name} の自動参加設定はありません。'), ephemeral=True)
+                await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f'指定されたボイスチャンネル {voice.mention} の自動参加設定はありません。'), ephemeral=True)
                 return
 
             await db.remove_autojoin(interaction.guild_id)
-            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.green(), description=f'ボイスチャンネル {voice.name} の自動参加設定を削除しました。'))
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.green(), description=f'ボイスチャンネル {voice.mention} の自動参加設定を削除しました。'))
         except Exception as e:
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f"設定の削除に失敗しました: {str(e)}"))
 
@@ -124,18 +125,21 @@ def setup_commands(tree: app_commands.CommandTree):
     @app_commands.describe(
         engine='音声エンジンの選択',
         voice='声の指定',
-        pitch='声の高さ（デフォルトは100）',
-        speed='読み上げ速度（AquesTalk: 50-200, VOICEVOX/AivisSpeech: 0.5-5）'
+        pitch='声の高さ (デフォルトは100)',
+        speed='読み上げ速度 (AquesTalk: 50-200, VOICEVOX/AivisSpeech: 0.5-5)',
+        accent='アクセントの強さ (AquesTalk10のみ デフォルト: 100)',
+        lmd='声質の高低 (AquesTalk10のみ デフォルト: 100)'
     )
     @app_commands.choices(
         engine=[
             app_commands.Choice(name='AquesTalk1', value='aquestalk1'),
             app_commands.Choice(name='AquesTalk2', value='aquestalk2'),
+            app_commands.Choice(name='AquesTalk10', value='aquestalk10'),
             app_commands.Choice(name='VOICEVOX', value='voicevox'),
             app_commands.Choice(name='AivisSpeech', value='aivisspeech')
         ]
     )
-    async def setvoice(interaction: discord.Interaction, engine: str, voice: str, pitch: int = 100, speed: float = 1.0):
+    async def setvoice(interaction: discord.Interaction, engine: str, voice: str, pitch: int = 100, speed: float = 1.0, accent: int = 100, lmd: int = 100):
         await ensure_db_connection()
 
         if engine.startswith('aquestalk'):
@@ -162,6 +166,11 @@ def setup_commands(tree: app_commands.CommandTree):
                 if not is_valid:
                     await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=error_message), ephemeral=True)
                     return
+            case 'aquestalk10':
+                is_valid, error_message = validate_voice_engine(engine, voice, config, voice_characters)
+                if not is_valid:
+                    await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=error_message), ephemeral=True)
+                    return
             case 'voicevox':
                 is_valid, error_message = validate_voice_engine(engine, voice, config, voice_characters)
                 if not is_valid:
@@ -174,8 +183,8 @@ def setup_commands(tree: app_commands.CommandTree):
                     return
 
         try:
-            await db.set_voice_settings(interaction.guild_id, interaction.user.id, voice, pitch, speed, engine)
-            update_voice_settings(interaction.guild_id, interaction.user.id, voice, pitch, speed, engine)
+            await db.set_voice_settings(interaction.guild_id, interaction.user.id, engine, voice, pitch, speed, accent, lmd)
+            update_voice_settings(interaction.guild_id, interaction.user.id, engine, voice, pitch, speed, accent, lmd)
 
             voice_name = get_voice_name(engine, voice, voice_characters)
 
@@ -184,10 +193,12 @@ def setup_commands(tree: app_commands.CommandTree):
                 f"エンジン: {engine}\n"
                 f"キャラクター: {voice_name}\n"
                 f"声の高さ: {pitch}\n"
-                f"速度: {speed}\n"
+                f"速度: {int(speed) if speed.is_integer() else speed}\n"
             )
             if engine == 'voicevox':
                 message += f"VOICEVOX: {voice_name}"
+            if engine == 'aquestalk10':
+                message += f"アクセントの強さ: {accent}\n声質の高低: {lmd}"
 
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.blue(), description=message))
         except Exception as e:
@@ -338,7 +349,7 @@ def setup_commands(tree: app_commands.CommandTree):
 
         try:
             await db.set_dynamic_join(interaction.guild_id, text.id)
-            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.green(), description=f'動的自動参加の設定を追加しました。\nテキストチャンネル: {text.name}'))
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.green(), description=f'動的自動参加の設定を追加しました。\nテキストチャンネル: {text.mention}'))
         except Exception as e:
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f'動的自動参加の設定に失敗しました: {str(e)}'), ephemeral=True)
 
@@ -351,7 +362,7 @@ def setup_commands(tree: app_commands.CommandTree):
 
         try:
             await db.remove_dynamic_join(interaction.guild_id, text.id)
-            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.green(), description=f'動的自動参加の設定を削除しました。\nテキストチャンネル: {text.name}'))
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.green(), description=f'動的自動参加の設定を削除しました。\nテキストチャンネル: {text.mention}'))
         except Exception as e:
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f'動的自動参加の設定の削除に失敗しました: {str(e)}'), ephemeral=True)
 

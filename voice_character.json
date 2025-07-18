@@ -25,6 +25,11 @@
         {"name": "MF2機械声 (ar_mf2)", "value": "ar_mf2"},
         {"name": "RM3女声 (ar_rm3)", "value": "ar_rm3"}
     ],
+    "AquesTalk10": [
+        {"name": "F1E", "value": "F1E"},
+        {"name": "F2E", "value": "F2E"},
+        {"name": "M1E", "value": "M1E"}
+    ],
     "voicevox": [
         {"name": "四国めたん", "value": "0"},
         {"name": "ずんだもん", "value": "3"},

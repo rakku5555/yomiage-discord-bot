@@ -1,5 +1,6 @@
 import aiosqlite
 import asyncmy
+import migrate
 import redis.asyncio as aioredis
 from config import Config
 
@@ -22,7 +23,7 @@ class Database:
 
         if connection_type == 'sqlite':
             self.connection = await aiosqlite.connect(db_config.get('database', 'bot.db'))
-            await self.create_tables_sqlite()
+            await migrate.create_tables_sqlite(self)
         elif connection_type in ['mysql', 'mariadb']:
             db_config = {
                 'host': db_config['host'],
@@ -32,149 +33,7 @@ class Database:
                 'port': db_config['port']
             }
             self.pool = await asyncmy.create_pool(**db_config)
-            await self.create_tables_mysql()
-
-    async def create_tables_sqlite(self) -> None:
-        async with self.connection.cursor() as cursor:
-            await cursor.execute("""
-                CREATE TABLE IF NOT EXISTS autojoin (
-                    server_id INTEGER PRIMARY KEY,
-                    voice_channel INTEGER NOT NULL,
-                    text_channel INTEGER NOT NULL
-                )
-            """)
-
-            await cursor.execute("""
-                CREATE TABLE IF NOT EXISTS voice_settings (
-                    server_id INTEGER,
-                    user_id INTEGER,
-                    voice_name TEXT NOT NULL,
-                    pitch INTEGER NOT NULL,
-                    speed INTEGER NOT NULL,
-                    engine TEXT NOT NULL,
-                    PRIMARY KEY (server_id, user_id)
-                )
-            """)
-
-            await cursor.execute("""
-                CREATE TABLE IF NOT EXISTS dictionary_replacements (
-                    server_id INTEGER NOT NULL,
-                    original_text TEXT NOT NULL,
-                    replacement_text TEXT NOT NULL,
-                    PRIMARY KEY (server_id, original_text)
-                )
-            """)
-
-            await cursor.execute("""
-                CREATE TABLE IF NOT EXISTS muted_users (
-                    server_id INTEGER NOT NULL,
-                    user_id INTEGER NOT NULL,
-                    PRIMARY KEY (server_id, user_id)
-                )
-            """)
-
-            await cursor.execute("""
-                CREATE TABLE IF NOT EXISTS dynamic_join (
-                    server_id INTEGER NOT NULL,
-                    text_channel INTEGER NOT NULL,
-                    PRIMARY KEY (server_id, text_channel)
-                )
-            """)
-            await self.connection.commit()
-
-    async def create_tables_mysql(self) -> None:
-        async with self.pool.acquire() as conn:
-            async with conn.cursor() as cursor:
-                await cursor.execute("""
-                    SELECT COUNT(*)
-                    FROM information_schema.tables
-                    WHERE table_schema = %s
-                    AND table_name = 'autojoin'
-                """, (self.config['database']['database'],))
-                table_exists = await cursor.fetchone()
-
-                if not table_exists[0]:
-                    await cursor.execute("""
-                        CREATE TABLE autojoin (
-                            server_id BIGINT PRIMARY KEY,
-                            voice_channel BIGINT NOT NULL,
-                            text_channel BIGINT NOT NULL
-                        )
-                    """)
-
-                await cursor.execute("""
-                    SELECT COUNT(*)
-                    FROM information_schema.tables
-                    WHERE table_schema = %s
-                    AND table_name = 'voice_settings'
-                """, (self.config['database']['database'],))
-                table_exists = await cursor.fetchone()
-
-                if not table_exists[0]:
-                    await cursor.execute("""
-                        CREATE TABLE voice_settings (
-                            server_id BIGINT,
-                            user_id BIGINT,
-                            voice_name VARCHAR(255) NOT NULL,
-                            pitch INTEGER NOT NULL,
-                            speed DOUBLE NOT NULL,
-                            engine VARCHAR(50) NOT NULL,
-                            PRIMARY KEY (server_id, user_id)
-                        )
-                    """)
-
-                await cursor.execute("""
-                    SELECT COUNT(*)
-                    FROM information_schema.tables
-                    WHERE table_schema = %s
-                    AND table_name = 'dictionary_replacements'
-                """, (self.config['database']['database'],))
-                table_exists = await cursor.fetchone()
-
-                if not table_exists[0]:
-                    await cursor.execute("""
-                        CREATE TABLE dictionary_replacements (
-                            server_id BIGINT NOT NULL,
-                            original_text VARCHAR(255) NOT NULL,
-                            replacement_text VARCHAR(255) NOT NULL,
-                            PRIMARY KEY (server_id, original_text)
-                        )
-                    """)
-
-                await cursor.execute("""
-                    SELECT COUNT(*)
-                    FROM information_schema.tables
-                    WHERE table_schema = %s
-                    AND table_name = 'muted_users'
-                """, (self.config['database']['database'],))
-                table_exists = await cursor.fetchone()
-
-                if not table_exists[0]:
-                    await cursor.execute("""
-                        CREATE TABLE muted_users (
-                            server_id BIGINT NOT NULL,
-                            user_id BIGINT NOT NULL,
-                            PRIMARY KEY (server_id, user_id)
-                        )
-                    """)
-
-                await cursor.execute("""
-                    SELECT COUNT(*)
-                    FROM information_schema.tables
-                    WHERE table_schema = %s
-                    AND table_name = 'dynamic_join'
-                """, (self.config['database']['database'],))
-                table_exists = await cursor.fetchone()
-
-                if not table_exists[0]:
-                    await cursor.execute("""
-                        CREATE TABLE dynamic_join (
-                            server_id BIGINT NOT NULL,
-                            text_channel BIGINT NOT NULL,
-                            PRIMARY KEY (server_id, text_channel)
-                        )
-                    """)
-                await conn.commit()
+            await migrate.create_tables_mysql(self)
 
     async def get_read_channels(self) -> dict[int, tuple[int, int]]:
         keys = await self.aioredis.keys("read_channels:*")
@@ -264,33 +123,35 @@ class Database:
                     await cursor.execute("DELETE FROM autojoin WHERE server_id = %s", (server_id,))
                     await conn.commit()
 
-    async def set_voice_settings(self, server_id: int, user_id: int, voice_name: str, pitch: int, speed: int, engine: str) -> None:
+    async def set_voice_settings(self, server_id: int, user_id: int, engine: str, voice_name: str, pitch: int, speed: float, accent: int, lmd: int) -> None:
         if self.config['database']['connection'] == 'sqlite':
             async with self.connection.cursor() as cursor:
                 await cursor.execute("""
-                    INSERT OR REPLACE INTO voice_settings (server_id, user_id, voice_name, pitch, speed, engine)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (server_id, user_id, voice_name, pitch, speed, engine))
+                    INSERT OR REPLACE INTO voice_settings (server_id, user_id, engine, voice_name, pitch, speed, accent, lmd)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (server_id, user_id, engine, voice_name, pitch, speed, accent, lmd))
                 await self.connection.commit()
         elif self.config['database']['connection'] in ['mysql', 'mariadb']:
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cursor:
                     await cursor.execute("""
-                        INSERT INTO voice_settings (server_id, user_id, voice_name, pitch, speed, engine)
-                        VALUES (%s, %s, %s, %s, %s, %s)
+                        INSERT INTO voice_settings (server_id, user_id, engine, voice_name, pitch, speed, accent, lmd)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         ON DUPLICATE KEY UPDATE 
+                        engine = %s,
                         voice_name = %s,
                         pitch = %s,
                         speed = %s,
-                        engine = %s
-                    """, (server_id, user_id, voice_name, pitch, speed, engine, voice_name, pitch, speed, engine))
+                        accent = %s,
+                        lmd = %s
+                    """, (server_id, user_id, engine, voice_name, pitch, speed, accent, lmd, engine, voice_name, pitch, speed, accent, lmd))
                     await conn.commit()
 
-    async def get_voice_settings(self, server_id: int, user_id: int) -> tuple[str, int, int, str] | None:
+    async def get_voice_settings(self, server_id: int, user_id: int) -> tuple[str, str, int, int, int, int] | None:
         if self.config['database']['connection'] == 'sqlite':
             async with self.connection.cursor() as cursor:
                 await cursor.execute("""
-                    SELECT voice_name, pitch, speed, engine 
+                    SELECT engine, voice_name, pitch, speed, accent, lmd 
                     FROM voice_settings 
                     WHERE server_id = ? AND user_id = ?
                 """, (server_id, user_id))
@@ -303,7 +164,7 @@ class Database:
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cursor:
                     await cursor.execute("""
-                        SELECT voice_name, pitch, speed, engine 
+                        SELECT engine, voice_name, pitch, speed, accent, lmd  
                         FROM voice_settings 
                         WHERE server_id = %s AND user_id = %s
                     """, (server_id, user_id))

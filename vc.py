@@ -8,7 +8,7 @@ import romaji_converter
 import time
 import warnings
 from aivisspeech import aivisspeech
-from aquestalk import aquestalk1, aquestalk2
+from aquestalk import aquestalk1, aquestalk2, aquestalk10
 from collections import defaultdict
 from config import Config
 from database import Database
@@ -24,7 +24,7 @@ debug = config['debug']
 message_queues = defaultdict(asyncio.Queue)
 reading_tasks = {}
 
-async def speak_in_voice_channel(voice_client: discord.VoiceClient, message: str, voice_name: str, pitch: int, speed: int, engine: str):
+async def speak_in_voice_channel(voice_client: discord.VoiceClient, engine: str, message: str, voice_name: str, pitch: int, speed: float, accent: int, lmd: int) -> None:
     if not voice_client.is_connected():
         return
 
@@ -62,15 +62,21 @@ async def speak_in_voice_channel(voice_client: discord.VoiceClient, message: str
                 if not config['engine_enabled']['aquestalk2']:
                     return
                 audio = aquestalk2(message, voice_name, int(speed))
+            case 'aquestalk10':
+                if not config['engine_enabled']['aquestalk10']:
+                    return
+                audio = aquestalk10(message, voice_name, int(speed), pitch, accent, lmd)
             case _:
                 raise ValueError(f"無効なエンジン: {engine}")
 
         try:
             audio_data = await audio.get_audio()
-        except aiohttp.client_exceptions.ClientConnectorError as e:
-            audio_data = await aquestalk1(text_to_speech().convert(message), 'f1', 100).get_audio()
+        except aiohttp.client_exceptions.ClientConnectorError:
+            audio_data = await aquestalk10(text_to_speech().convert(message), 'F1E').get_audio()
+        except RuntimeError:
+            audio_data = await aquestalk10(text_to_speech().convert(message), 'F1E').get_audio()
 
-        if engine.startswith('aquestalk'):
+        if engine.startswith('aquestalk') and engine != 'aquestalk10':
             audio_data = await pitch_convert(audio_data, pitch)
 
         if debug:
@@ -98,9 +104,9 @@ async def process_message_queue(guild_id: int):
             if message_data is None:
                 break
 
-            message, voice_name, pitch, speed, voice_client, engine = message_data
+            message, engine, voice_name, pitch, speed, voice_client, accent, lmd = message_data
 
-            await speak_in_voice_channel(voice_client, message, voice_name, pitch, speed, engine)
+            await speak_in_voice_channel(voice_client, engine, message, voice_name, pitch, speed, accent, lmd)
             if debug:
                 logger.debug('音声再生が完了しました')
 
@@ -137,13 +143,15 @@ async def read_message(message: str | discord.Message, guild: discord.Guild = No
         if voice_settings:
             current_voice_settings[(guild.id, author.id)] = voice_settings
 
+    engine = 'voicevox'
     voice_name = '2'
     pitch = 100
     speed = 1.0
-    engine = 'voicevox'
+    accent = None
+    lmd = None
 
     if voice_settings:
-        voice_name, pitch, speed, engine = voice_settings
+        engine, voice_name, pitch, speed, accent, lmd = voice_settings
 
     for match in re.finditer(r'<@!?(\d+)>', message):
         user_id = int(match.group(1))
@@ -174,13 +182,13 @@ async def read_message(message: str | discord.Message, guild: discord.Guild = No
     if len(message) >= config['discord']['max_length']:
         message = message[:config['discord']['max_length']] + '。以下省略'
 
-    await message_queues[guild.id].put((message, voice_name, pitch, speed, voice_client, engine))
+    await message_queues[guild.id].put((message, engine, voice_name, pitch, speed, voice_client, accent, lmd))
 
     if guild.id not in reading_tasks or reading_tasks[guild.id].done():
         reading_tasks[guild.id] = asyncio.create_task(process_message_queue(guild.id))
 
-def update_voice_settings(guild_id: int, user_id: int, voice_name: str, pitch: int, speed: int, engine: str):
-    current_voice_settings[(guild_id, user_id)] = (voice_name, pitch, speed, engine)
+def update_voice_settings(guild_id: int, user_id: int, engine: str, voice_name: str, pitch: int, speed: float, accent: int, lmd: int) -> None:
+    current_voice_settings[(guild_id, user_id)] = (engine, voice_name, pitch, speed, accent, lmd)
 
 async def pitch_convert(audio_data: bytes, pitch: int) -> bytes:
     process = await asyncio.create_subprocess_exec(
