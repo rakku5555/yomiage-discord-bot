@@ -1,9 +1,11 @@
 import discord
 import json
+import math
 import random
 from config import Config
 from database import Database
 from discord import app_commands
+from discord.ui import View, Button
 from loguru import logger
 from vc import update_voice_settings, message_queues, reading_tasks
 
@@ -258,11 +260,8 @@ def setup_commands(tree: app_commands.CommandTree):
                 await interaction.response.send_message(embed=discord.Embed(color=discord.Color.dark_orange(), description='登録されている単語はありません。'), ephemeral=True)
                 return
 
-            message = "登録されている単語一覧:\n"
-            for original, replacement in replacements.items():
-                message += f"- 「{original}」→「{replacement}」\n"
-
-            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.purple(), description=message), ephemeral=True)
+            embed, view = create_dict_pagination_response(replacements, '登録されている単語一覧')
+            await interaction.response.send_message(embed=embed, view=view)
         except Exception as e:
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f"単語一覧の取得に失敗しました: {str(e)}"))
 
@@ -308,11 +307,8 @@ def setup_commands(tree: app_commands.CommandTree):
                 await interaction.response.send_message(embed=discord.Embed(color=discord.Color.dark_orange(), description='登録されている単語はありません。'), ephemeral=True)
                 return
 
-            message = "登録されている単語一覧:\n"
-            for original, replacement in replacements.items():
-                message += f"- 「{original}」→「{replacement}」\n"
-
-            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.purple(), description=message), ephemeral=True)
+            embed, view = create_dict_pagination_response(replacements, 'グローバル辞書一覧')
+            await interaction.response.send_message(embed=embed, view=view)
         except Exception as e:
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f"単語一覧の取得に失敗しました: {str(e)}"))
 
@@ -445,3 +441,49 @@ def get_voice_name(engine: str, voice: str, voice_characters: dict) -> str:
         if v['value'] == voice:
             return v['name']
     return ''
+
+def create_dict_pagination_response(replacements: dict, title: str, color: discord.Color = discord.Color.purple()) -> tuple[discord.Embed, View]:
+    items = list(replacements.items())
+    page_size = 10
+    total_pages = math.ceil(len(items) / page_size)
+    def embed_factory(items, page, page_size, total_pages):
+        start = page * page_size
+        end = start + page_size
+        message = f"{title} (ページ {page+1}/{total_pages}):\n"
+        for original, replacement in items[start:end]:
+            message += f"- 「{original}」→「{replacement}」\n"
+        return discord.Embed(color=color, description=message)
+    view = PaginationView(items, page_size, embed_factory)
+    view.children[0].disabled = True
+    view.children[1].disabled = total_pages <= 1
+    embed = embed_factory(items, 0, page_size, total_pages)
+    return embed, view
+
+class PaginationView(View):
+    def __init__(self, items: list, page_size: int, embed_factory: callable, *, timeout: float = 60):
+        super().__init__(timeout=timeout)
+        self.items = items
+        self.page_size = page_size
+        self.total_pages = math.ceil(len(items) / page_size)
+        self.page = 0
+        self.embed_factory = embed_factory
+
+    async def update_embed(self, interaction: discord.Interaction):
+        embed = self.embed_factory(self.items, self.page, self.page_size, self.total_pages)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(label='前へ', style=discord.ButtonStyle.secondary, disabled=True)
+    async def prev(self, interaction: discord.Interaction, button: Button):
+        if self.page > 0:
+            self.page -= 1
+        self.children[0].disabled = self.page == 0
+        self.children[1].disabled = self.page >= self.total_pages - 1
+        await self.update_embed(interaction)
+
+    @discord.ui.button(label='次へ', style=discord.ButtonStyle.secondary, disabled=True)
+    async def next(self, interaction: discord.Interaction, button: Button):
+        if self.page < self.total_pages - 1:
+            self.page += 1
+        self.children[0].disabled = self.page == 0
+        self.children[1].disabled = self.page >= self.total_pages - 1
+        await self.update_embed(interaction)
