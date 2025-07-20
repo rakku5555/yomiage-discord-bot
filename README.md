@@ -5,6 +5,7 @@ discord.pyを利用しています
 ## 使用している音声合成エンジン
 - [AquesTalk1](https://www.a-quest.com/products/aquestalk_1.html)
 - [AquesTalk2](https://www.a-quest.com/products/aquestalk_2.html)
+- [AquesTalk10](https://www.a-quest.com/products/aquestalk10.html)
 - [VoiceVox](https://voicevox.hiroshiba.jp/)
 - [AivisSpeech](https://aivis-project.com/)
 
