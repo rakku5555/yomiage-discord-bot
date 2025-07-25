@@ -133,8 +133,8 @@ async def read_message(message: str | discord.Message, guild: discord.Guild = No
     if voice_client is None or not voice_client.is_connected():
         return
 
-    message = apply_replacements(message, await db.get_dictionary_replacements(guild.id))
-    message = apply_replacements(message, await db.get_global_dictionary_replacements())
+    message = apply_replacements(message.lower(), await db.get_dictionary_replacements(guild.id))
+    message = apply_replacements(message.lower(), await db.get_global_dictionary_replacements())
 
     voice_settings = current_voice_settings.get((guild.id, author.id))
     if voice_settings is None and author:

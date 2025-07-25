@@ -1,4 +1,5 @@
 import discord
+import jaconv
 import json
 import math
 import random
@@ -241,6 +242,8 @@ def setup_commands(tree: app_commands.CommandTree):
     @dict_group.command(name='add', description='単語の読み方を登録します')
     @app_commands.describe(word='登録する単語', to='変換後の読み方')
     async def dict_add(interaction: discord.Interaction, word: str, to: str):
+        word = word.lower()
+        to = jaconv.hira2kata(to)
         await ensure_db_connection()
 
         try:
@@ -288,6 +291,8 @@ def setup_commands(tree: app_commands.CommandTree):
     @global_dict_group.command(name='add', description='グローバル単語の読み方を登録します')
     @app_commands.describe(word='登録する単語', to='変換後の読み方')
     async def dict_add(interaction: discord.Interaction, word: str, to: str):
+        word = word.lower()
+        to = jaconv.hira2kata(to)
         await ensure_db_connection()
 
         try:
