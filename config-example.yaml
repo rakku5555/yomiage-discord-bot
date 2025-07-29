@@ -27,6 +27,10 @@ voicevox:
     url: http://localhost:50021
 aivisspeech:
     url: http://localhost:10101
+    apikey: null
+    edition:
+        engine: false
+        cloud: true
 dev_key:
     aqkanji2koe: null
     aquestalk10: null
