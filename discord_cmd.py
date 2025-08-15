@@ -73,7 +73,7 @@ def setup_commands(tree: app_commands.CommandTree):
 
         try:
             await db.set_autojoin(interaction.guild_id, voice.id, text.id)
-            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.green(), description=f"自動参加設定を更新しました。\n"f"ボイスチャンネル: {voice.mention}\n"f"テキストチャンネル: {text.mention}"))
+            await interaction.response.send_message(embed=discord.Embed(color=discord.Color.green(), description=f"自動参加設定を追加しました。\n"f"ボイスチャンネル: {voice.mention}\n"f"テキストチャンネル: {text.mention}"))
         except Exception as e:
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f"設定の更新に失敗しました: {str(e)}"))
 

@@ -3,7 +3,7 @@ import os
 import platform
 from config import Config
 
-class text_to_speech:
+class aqkanji2koe:
     _instance = None
 
     def __new__(cls):

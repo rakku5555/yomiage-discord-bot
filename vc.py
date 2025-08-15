@@ -14,7 +14,7 @@ from config import Config
 from database import Database
 from functools import lru_cache
 from loguru import logger
-from text_to_speech import text_to_speech
+from aqkanji2koe import aqkanji2koe
 from voicevox import voicevox
 
 config = Config.load_config()
@@ -30,15 +30,15 @@ async def speak_in_voice_channel(voice_client: discord.VoiceClient, engine: str,
 
     message = romaji_converter.romaji_to_hiragana(message.lower())
 
-    words = re.findall(r'[a-z]+', message.lower())
-    for word in words:
-        if engine == 'voicevox':
-            break
-        converted = kana_convert(word)
-        message = message.replace(word, converted)
+    #words = re.findall(r'[a-z]+', message.lower())
+    #for word in words:
+    #   if engine == 'voicevox':
+    #       break
+    #    converted = kana_convert(word)
+    #    message = message.replace(word, converted)
 
     if engine.startswith('aquestalk'):
-        message = text_to_speech().convert(message)
+        message = aqkanji2koe().convert(message)
 
     if debug:
         logger.debug(f"音声合成開始: {message} - 使用する音声合成エンジン: {engine}")
@@ -72,9 +72,9 @@ async def speak_in_voice_channel(voice_client: discord.VoiceClient, engine: str,
         try:
             audio_data = await audio.get_audio()
         except aiohttp.client_exceptions.ClientConnectorError:
-            audio_data = await aquestalk10(text_to_speech().convert(message), 'F1E').get_audio()
+            audio_data = await aquestalk10(aqkanji2koe().convert(message), 'F1E').get_audio()
         except RuntimeError:
-            audio_data = await aquestalk10(text_to_speech().convert(message), 'F1E').get_audio()
+            audio_data = await aquestalk10(aqkanji2koe().convert(message), 'F1E').get_audio()
 
         if engine.startswith('aquestalk') and engine != 'aquestalk10':
             audio_data = await pitch_convert(audio_data, pitch)
@@ -170,10 +170,10 @@ async def read_message(message: str | discord.Message, guild: discord.Guild = No
         channel = guild.get_channel(channel_id)
         if channel:
             cleaned_channel_name = re.sub(r'[\U0001F300-\U0001F64F\U0001F680-\U0001F6FF\u2600-\u26FF\u2700-\u27BF]', '', channel.name)
-            message = message.replace(f'<#{channel_id_str}>', cleaned_channel_name)
+            message = message.replace(f"<#{channel_id_str}>", cleaned_channel_name)
 
     message = re.sub(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+(?:\/[^\s]*)?', 'ユーアールエル省略', message)
-    message = re.sub(r'<:[a-zA-Z0-9_]+:[0-9]+>', '', message)
+    message = re.sub(r'<a?:[a-zA-Z0-9_]+:[0-9]+>', '', message)
 
     if len(message) == 0:
         return
