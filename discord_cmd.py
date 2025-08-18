@@ -196,7 +196,7 @@ def setup_commands(tree: app_commands.CommandTree):
                 f"エンジン: {engine}\n"
                 f"キャラクター: {voice_name}\n"
                 f"声の高さ: {pitch}\n"
-                f"速度: {int(speed) if speed.is_integer() else speed}\n"
+                f"速度: {int(speed) if float(speed).is_integer() else speed}\n"
             )
             if engine == 'voicevox':
                 message += f"VOICEVOX: {voice_name}"
