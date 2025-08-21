@@ -35,7 +35,7 @@ async def create_tables_sqlite(db_instance) -> None:
             CREATE TABLE IF NOT EXISTS global_dictionary_replacements (
                 original_text TEXT NOT NULL,
                 replacement_text TEXT NOT NULL,
-                PRIMARY KEY original_text
+                PRIMARY KEY (original_text)
             )
         """)
 
