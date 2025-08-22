@@ -1,6 +1,10 @@
+import aiofiles
 import aiosqlite
 import asyncmy
+import json
 import migrate
+import os
+import redis
 import redis.asyncio as aioredis
 from config import Config
 
@@ -13,13 +17,15 @@ class Database:
             cls._instance.pool = None
             cls._instance.connection = None
             cls._instance.config = Config.load_config()
+            cls._instance.read_channels_file = "read_channels.json"
         return cls._instance
 
     async def connect(self) -> None:
         db_config = self.config['database']
         redis_config = self.config['redis']
         connection_type = db_config.get('connection', 'sqlite').lower()
-        self.aioredis = aioredis.Redis(host=redis_config['host'], port=redis_config['port'], db=redis_config['db'], password=redis_config['passwd'])
+        self.aioredis = aioredis.Redis(host=redis_config['host'], port=redis_config['port'], db=redis_config['db'], password=redis_config['passwd'], socket_timeout=5.0, socket_connect_timeout=3.0)
+        self.use_file_fallback = False
 
         if connection_type == 'sqlite':
             self.connection = await aiosqlite.connect(db_config.get('database', 'bot.db'))
@@ -35,35 +41,116 @@ class Database:
             self.pool = await asyncmy.create_pool(**db_config)
             await migrate.create_tables_mysql(self)
 
+    async def _load_read_channels(self) -> dict:
+        try:
+            if os.path.exists(self.read_channels_file):
+                async with aiofiles.open(self.read_channels_file, encoding='utf-8') as f:
+                    content = await f.read()
+                    return json.loads(content) if content else {}
+            return {}
+        except (json.JSONDecodeError, FileNotFoundError):
+            return {}
+
+    async def _save_read_channels(self, data: dict) -> None:
+        async with aiofiles.open(self.read_channels_file, 'w', encoding='utf-8') as f:
+            await f.write(json.dumps(data, ensure_ascii=False, indent=2))
+
     async def get_read_channels(self) -> dict[int, tuple[int, int]]:
-        keys = await self.aioredis.keys("read_channels:*")
+        if self.use_file_fallback:
+            return await self._get_read_channels_file()
+
+        try:
+            keys = await self.aioredis.keys("read_channels:*")
+            result = {}
+            for key in keys:
+                server_id = int(key.decode().split(":")[1])
+                data = await self.aioredis.hgetall(key)
+                if data:
+                    voice_channel = int(data[b'voice_channel'].decode())
+                    chat_channel = int(data[b'chat_channel'].decode())
+                    result[server_id] = (voice_channel, chat_channel)
+            return result
+        except redis.exceptions.TimeoutError:
+            self.use_file_fallback = True
+            return await self._get_read_channels_file()
+
+    async def _get_read_channels_file(self) -> dict[int, tuple[int, int]]:
+        data = await self._load_read_channels()
         result = {}
-        for key in keys:
-            server_id = int(key.decode().split(":")[1])
-            data = await self.aioredis.hgetall(key)
-            if data:
-                voice_channel = int(data[b'voice_channel'].decode())
-                chat_channel = int(data[b'chat_channel'].decode())
-                result[server_id] = (voice_channel, chat_channel)
+        for server_id_str, channels in data.items():
+            server_id = int(server_id_str)
+            voice_channel = channels['voice_channel']
+            chat_channel = channels['chat_channel']
+            result[server_id] = (voice_channel, chat_channel)
         return result
 
     async def get_read_channel(self, server_id: int) -> tuple[int, int] | None:
-        data = await self.aioredis.hgetall(f"read_channels:{server_id}")
-        if data:
-            voice_channel = int(data[b'voice_channel'].decode())
-            chat_channel = int(data[b'chat_channel'].decode())
+        if self.use_file_fallback:
+            return await self._get_read_channel_file(server_id)
+
+        try:
+            data = await self.aioredis.hgetall(f"read_channels:{server_id}")
+            if data:
+                voice_channel = int(data[b'voice_channel'].decode())
+                chat_channel = int(data[b'chat_channel'].decode())
+                return (voice_channel, chat_channel)
+            else:
+                return None
+        except redis.exceptions.TimeoutError:
+            self.use_file_fallback = True
+            return await self._get_read_channel_file(server_id)
+
+    async def _get_read_channel_file(self, server_id: int) -> tuple[int, int] | None:
+        data = await self._load_read_channels()
+        server_id_str = str(server_id)
+        if server_id_str in data:
+            channels = data[server_id_str]
+            voice_channel = channels['voice_channel']
+            chat_channel = channels['chat_channel']
             return (voice_channel, chat_channel)
         else:
             return None
 
     async def set_read_channel(self, server_id: int, voice_channel: int, chat_channel: int) -> None:
-        await self.aioredis.hset(f"read_channels:{server_id}", mapping={
+        if self.use_file_fallback:
+            await self._set_read_channel_file(server_id, voice_channel, chat_channel)
+            return
+
+        try:
+            await self.aioredis.hset(f"read_channels:{server_id}", mapping={
+                'voice_channel': voice_channel,
+                'chat_channel': chat_channel
+            })
+        except redis.exceptions.TimeoutError:
+            self.use_file_fallback = True
+            await self._set_read_channel_file(server_id, voice_channel, chat_channel)
+
+    async def _set_read_channel_file(self, server_id: int, voice_channel: int, chat_channel: int) -> None:
+        data = await self._load_read_channels()
+        server_id_str = str(server_id)
+        data[server_id_str] = {
             'voice_channel': voice_channel,
             'chat_channel': chat_channel
-        })
+        }
+        await self._save_read_channels(data)
 
     async def remove_read_channel(self, server_id: int) -> None:
-        await self.aioredis.delete(f"read_channels:{server_id}")
+        if self.use_file_fallback:
+            await self._remove_read_channel_file(server_id)
+            return
+
+        try:
+            await self.aioredis.delete(f"read_channels:{server_id}")
+        except redis.exceptions.TimeoutError:
+            self.use_file_fallback = True
+            await self._remove_read_channel_file(server_id)
+
+    async def _remove_read_channel_file(self, server_id: int) -> None:
+        data = await self._load_read_channels()
+        server_id_str = str(server_id)
+        if server_id_str in data:
+            del data[server_id_str]
+            await self._save_read_channels(data)
 
     async def set_autojoin(self, server_id: int, voice_channel: int, text_channel: int) -> None:
         if self.config['database']['connection'] == 'sqlite':
@@ -419,8 +506,9 @@ class Database:
 
     def __del__(self):
         try:
-            self.aioredis.close()
-        except ImportError:
+            if hasattr(self, 'aioredis'):
+                self.aioredis.close()
+        except (ImportError, AttributeError):
             # エラーを表示させないためにパスする
             pass
         if self.config['database']['connection'] == 'sqlite':
