@@ -9,4 +9,4 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
-      time_zone: "Asia/Tokyo"
+      timezone: "Asia/Tokyo"
