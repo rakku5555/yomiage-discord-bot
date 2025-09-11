@@ -421,7 +421,13 @@ def setup_commands(tree: app_commands.CommandTree):
         await ensure_db_connection()
 
         try:
-            await db.set_read_channel(interaction.guild_id, interaction.channel_id)
+            read_channel = await db.get_read_channel(interaction.guild_id)
+            if not read_channel:
+                await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description='読み上げチャンネルが設定されていません。先に/joinコマンドでボイスチャンネルに参加してください。'), ephemeral=True)
+                return
+
+            voice_channel_id, _ = read_channel
+            await db.set_read_channel(interaction.guild_id, voice_channel_id, interaction.channel_id)
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.green(), description='読み上げるテキストチャンネルを変更しました。'))
         except Exception as e:
             await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=f'読み上げるテキストチャンネルの変更に失敗しました: {str(e)}'))
