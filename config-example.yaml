@@ -19,18 +19,11 @@ engine_enabled:
     aquestalk2: false
     aquestalk10: false
     voicevox: true
-    aivisspeech: false
 voicevox:
     edition:
         core: true
         engine: false
     url: http://localhost:50021
-aivisspeech:
-    url: http://localhost:10101
-    apikey: null
-    edition:
-        engine: false
-        cloud: true
 dev_key:
     aqkanji2koe: null
     aquestalk10: null

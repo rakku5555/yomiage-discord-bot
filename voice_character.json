@@ -70,8 +70,5 @@
         {"name": "東北ずん子", "value": "107"},
         {"name": "東北きりたん", "value": "108"},
         {"name": "東北イタコ", "value": "109"}
-    ],
-    "aivisspeech": [
-        {"name": "Anneli", "value": "888753760"}
     ]
 }
