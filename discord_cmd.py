@@ -15,7 +15,8 @@ engine_key = {
     'aquestalk1': 'AquesTalk1',
     'aquestalk2': 'AquesTalk2',
     'aquestalk10': 'AquesTalk10',
-    'voicevox': 'voicevox'
+    'voicevox': 'voicevox',
+    'aivisspeech': 'aivisspeech'
 }
 
 async def ensure_db_connection():
@@ -128,7 +129,7 @@ def setup_commands(tree: app_commands.CommandTree):
         engine='音声エンジンの選択',
         voice='声の指定',
         pitch='声の高さ (デフォルトは100)',
-        speed='読み上げ速度 (AquesTalk: 50-200, VOICEVOX: 0.5-5)',
+        speed='読み上げ速度 (AquesTalk: 50-200, VOICEVOX/AivisSpeech: 0.5-5)',
         accent='アクセントの強さ (AquesTalk10のみ デフォルト: 100)',
         lmd='声質の高低 (AquesTalk10のみ デフォルト: 100)'
     )
@@ -138,6 +139,7 @@ def setup_commands(tree: app_commands.CommandTree):
             app_commands.Choice(name='AquesTalk2', value='aquestalk2'),
             app_commands.Choice(name='AquesTalk10', value='aquestalk10'),
             app_commands.Choice(name='VOICEVOX', value='voicevox'),
+            app_commands.Choice(name='AivisSpeech', value='aivisspeech')
         ]
     )
     async def setvoice(interaction: discord.Interaction, engine: str, voice: str, pitch: int = 100, speed: float = 1.0, accent: int = 100, lmd: int = 100):
@@ -151,7 +153,7 @@ def setup_commands(tree: app_commands.CommandTree):
                 return
         else:
             if speed < 0.5 or speed > 5:
-                await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description='VOICEVOXの速度は0.5から10の間で指定してください。'), ephemeral=True)
+                await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description='VOICEVOX/AivisSpeechの速度は0.5から10の間で指定してください。'), ephemeral=True)
                 return
 
         config = await Config.async_load_config()
@@ -173,6 +175,11 @@ def setup_commands(tree: app_commands.CommandTree):
                     await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=error_message), ephemeral=True)
                     return
             case 'voicevox':
+                is_valid, error_message = validate_voice_engine(engine, voice, config, voice_characters)
+                if not is_valid:
+                    await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=error_message), ephemeral=True)
+                    return
+            case 'aivisspeech':
                 is_valid, error_message = validate_voice_engine(engine, voice, config, voice_characters)
                 if not is_valid:
                     await interaction.response.send_message(embed=discord.Embed(color=discord.Color.red(), description=error_message), ephemeral=True)

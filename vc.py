@@ -7,6 +7,7 @@ import re
 import romaji_converter
 import time
 import warnings
+from aivisspeech import aivisspeech
 from aquestalk import aquestalk1, aquestalk2, aquestalk10
 from collections import defaultdict
 from config import Config
@@ -45,6 +46,10 @@ async def speak_in_voice_channel(voice_client: discord.VoiceClient, engine: str,
 
     try:
         match engine:
+            case 'aivisspeech':
+                if not config['engine_enabled']['aivisspeech']:
+                    return
+                audio = aivisspeech(message, int(voice_name), pitch, speed)
             case 'voicevox':
                 if not config['engine_enabled']['voicevox']:
                     return

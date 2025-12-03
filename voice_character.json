@@ -70,5 +70,8 @@
         {"name": "東北ずん子", "value": "107"},
         {"name": "東北きりたん", "value": "108"},
         {"name": "東北イタコ", "value": "109"}
+    ],
+    "aivisspeech": [
+        {"name": "コハク", "value": "22e8ed77-94fe-4ef2-871f-a86f94e9a579"}
     ]
 }
