@@ -54,10 +54,26 @@ romaji_to_hiragana_map = {
 }
 
 def is_romaji(text: str) -> bool:
+    """
+    ローマ字かどうかを判定する
+    Args:
+        text: テキスト
+    Returns:
+        bool: ローマ字かどうか
+    """
+
     romaji_pattern = re.compile(r"^[a-zA-Z0-9\s.,'?!-]*$")
     return bool(romaji_pattern.fullmatch(text))
 
 def romaji_to_hiragana(romaji_text: str) -> str:
+    """
+    ローマ字をひらがなに変換する
+    Args:
+        romaji_text: ローマ字
+    Returns:
+        str: ひらがな
+    """
+
     if not is_romaji(romaji_text):
         return romaji_text
 
@@ -123,3 +139,21 @@ def romaji_to_hiragana(romaji_text: str) -> str:
     for placeholder, value in placeholders.items():
         final = final.replace(placeholder, value)
     return final
+
+def w_to_wara_converter(text: str) -> str:
+    """
+    文章の末尾にある笑いを意味する 'w' の連続を、'ワラ' といった表現に変換する
+    Args:
+        text: テキスト
+    Returns:
+        str: 変換後のテキスト
+    """
+
+    url_pattern = re.compile(r'^(https?://|www\.)', re.IGNORECASE)
+
+    w_slang_pattern = re.compile(r'(\s*)(w+)$')
+
+    if url_pattern.search(text):
+        return text
+
+    return w_slang_pattern.sub(lambda match: match.group(1) + ('ワラ' * len(match.group(2))), text)

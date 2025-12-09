@@ -4,7 +4,7 @@ import discord
 import io
 import kanalizer
 import re
-import romaji_converter
+import text_converters
 import time
 import warnings
 from aivisspeech import aivisspeech
@@ -28,7 +28,7 @@ async def speak_in_voice_channel(voice_client: discord.VoiceClient, engine: str,
     if not voice_client.is_connected():
         return
 
-    message = romaji_converter.romaji_to_hiragana(message.lower())
+    message = text_converters.w_to_wara_converter(text_converters.romaji_to_hiragana(message.lower()))
 
     #words = re.findall(r'[a-z]+', message.lower())
     #for word in words:
@@ -49,7 +49,7 @@ async def speak_in_voice_channel(voice_client: discord.VoiceClient, engine: str,
             case 'aivisspeech':
                 if not config['engine_enabled']['aivisspeech']:
                     return
-                audio = aivisspeech(message, int(voice_name), pitch, speed)
+                audio = aivisspeech(message, voice_name, pitch, speed)
             case 'voicevox':
                 if not config['engine_enabled']['voicevox']:
                     return
