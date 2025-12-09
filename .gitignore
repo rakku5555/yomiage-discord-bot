@@ -2,3 +2,4 @@
 __pycache__
 config.yaml
 bot.db
+read_channels.json
