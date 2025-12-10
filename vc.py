@@ -68,20 +68,18 @@ async def speak_in_voice_channel(
                 for key in ("aquestalk1", "aquestalk2", "aquestalk10"):
                     if not config["engine_enabled"][key]:
                         return
-                audio = aquestalk(message, engine, voice_name, int(speed), pitch, accent, lmd)
+                audio = aquestalk(
+                    message, engine, voice_name, int(speed), pitch, accent, lmd
+                )
             case _:
                 raise ValueError(f"無効なエンジン: {engine}")
 
         try:
             audio_data = await audio.get_audio()
         except aiohttp.client_exceptions.ClientConnectorError:
-            audio_data = await aquestalk(
-                message, "F1E"
-            ).get_audio()
+            audio_data = await aquestalk(message, "F1E").get_audio()
         except RuntimeError:
-            audio_data = await aquestalk(
-                message, "F1E"
-            ).get_audio()
+            audio_data = await aquestalk(message, "F1E").get_audio()
 
         if engine.startswith("aquestalk") and engine != "aquestalk10":
             audio_data = await pitch_convert(audio_data, pitch)
