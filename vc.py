@@ -13,8 +13,7 @@ from loguru import logger
 
 import text_converters
 from aivisspeech import aivisspeech
-from aqkanji2koe import aqkanji2koe
-from aquestalk import aquestalk1, aquestalk2, aquestalk10
+from aquestalk import aquestalk
 from config import Config
 from database import Database
 from voicevox import voicevox
@@ -51,9 +50,6 @@ async def speak_in_voice_channel(
     #    converted = kana_convert(word)
     #    message = message.replace(word, converted)
 
-    if engine.startswith("aquestalk"):
-        message = aqkanji2koe().convert(message)
-
     if debug:
         logger.debug(f"音声合成開始: {message} - 使用する音声合成エンジン: {engine}")
         start_time = time.time()
@@ -68,30 +64,23 @@ async def speak_in_voice_channel(
                 if not config["engine_enabled"]["voicevox"]:
                     return
                 audio = voicevox(message, int(voice_name), pitch, speed)
-            case "aquestalk1":
-                if not config["engine_enabled"]["aquestalk1"]:
-                    return
-                audio = aquestalk1(message, voice_name, int(speed))
-            case "aquestalk2":
-                if not config["engine_enabled"]["aquestalk2"]:
-                    return
-                audio = aquestalk2(message, voice_name, int(speed))
-            case "aquestalk10":
-                if not config["engine_enabled"]["aquestalk10"]:
-                    return
-                audio = aquestalk10(message, voice_name, int(speed), pitch, accent, lmd)
+            case engine if "aquestalk" in engine:
+                for key in ("aquestalk1", "aquestalk2", "aquestalk10"):
+                    if not config["engine_enabled"][key]:
+                        return
+                audio = aquestalk(message, engine, voice_name, int(speed), pitch, accent, lmd)
             case _:
                 raise ValueError(f"無効なエンジン: {engine}")
 
         try:
             audio_data = await audio.get_audio()
         except aiohttp.client_exceptions.ClientConnectorError:
-            audio_data = await aquestalk10(
-                aqkanji2koe().convert(message), "F1E"
+            audio_data = await aquestalk(
+                message, "F1E"
             ).get_audio()
         except RuntimeError:
-            audio_data = await aquestalk10(
-                aqkanji2koe().convert(message), "F1E"
+            audio_data = await aquestalk(
+                message, "F1E"
             ).get_audio()
 
         if engine.startswith("aquestalk") and engine != "aquestalk10":

@@ -31,6 +31,5 @@ aivisspeech:
     edition:
         engine: false
         cloud: true
-dev_key:
-    aqkanji2koe: null
-    aquestalk10: null
+aquestalk:
+    url: http://localhost:8000

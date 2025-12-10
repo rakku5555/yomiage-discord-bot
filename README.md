@@ -24,6 +24,8 @@ discord.pyを利用しています
 - [Redis](https://redis.io/)
 - [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/ja/visual-cpp-build-tools/)(mysql又はmariadbをwindowsで使用するときのみ)
 
+Aquestalkを使用する場合は[aquestalk-api](https://github.com/rakku5555/aquestalk-api)が必要です
+
 ## インストール方法
 
 ```
