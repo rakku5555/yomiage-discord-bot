@@ -66,7 +66,7 @@ async def speak_in_voice_channel(
                 audio = voicevox(message, int(voice_name), pitch, speed)
             case engine if "aquestalk" in engine:
                 for key in ("aquestalk1", "aquestalk2", "aquestalk10"):
-                    if not config["engine_enabled"][key]:
+                    if not config["engine_enabled"][key] and engine == key:
                         return
                 audio = aquestalk(
                     message, engine, voice_name, int(speed), pitch, accent, lmd
