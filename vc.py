@@ -2,6 +2,7 @@ import asyncio
 import io
 import re
 import time
+import unicodedata
 import warnings
 from collections import defaultdict
 from functools import lru_cache
@@ -40,7 +41,7 @@ async def speak_in_voice_channel(
         return
 
     message = text_converters.w_to_wara_converter(
-        text_converters.romaji_to_hiragana(message.lower())
+        unicodedata.normalize("NFKC", text_converters.romaji_to_hiragana(message.lower()))
     )
 
     # words = re.findall(r'[a-z]+', message.lower())
@@ -77,9 +78,9 @@ async def speak_in_voice_channel(
         try:
             audio_data = await audio.get_audio()
         except aiohttp.client_exceptions.ClientConnectorError:
-            audio_data = await aquestalk(message, "F1E").get_audio()
+            audio_data = await aquestalk(message, "aquestalk10", "F1E").get_audio()
         except RuntimeError:
-            audio_data = await aquestalk(message, "F1E").get_audio()
+            audio_data = await aquestalk(message, "aquestalk10", "F1E").get_audio()
 
         if engine.startswith("aquestalk") and engine != "aquestalk10":
             audio_data = await pitch_convert(audio_data, pitch)

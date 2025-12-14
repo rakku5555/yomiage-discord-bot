@@ -12,7 +12,7 @@ class aivisspeech:
             self.params = {"text": text, "speaker": speaker}
         elif self.config["aivisspeech"]["edition"]["cloud"]:
             self.data = {
-                "model_uuid": self.config["aivisspeech"]["model_uuid"],
+                "model_uuid": speaker,
                 "text": text,
                 "pitch": self.pitch,
                 "speaking_rate": self.speed,
