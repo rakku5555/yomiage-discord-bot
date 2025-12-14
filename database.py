@@ -1,5 +1,6 @@
 import json
 import os
+import warnings
 
 import aiofiles
 import aiosqlite
@@ -649,6 +650,7 @@ class Database:
             pass
         if self.config["database"]["connection"] == "sqlite":
             if self.connection:
+                warnings.simplefilter('ignore')
                 self.connection.close()
         elif (
             self.config["database"]["connection"] in ["mysql", "mariadb"] and self.pool

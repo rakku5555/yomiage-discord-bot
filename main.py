@@ -1,6 +1,7 @@
 import asyncio
 import platform
 import sys
+import threading
 from datetime import UTC, datetime, timedelta
 
 import discord
@@ -8,6 +9,7 @@ from discord import app_commands
 from loguru import logger
 
 from config import Config
+from console import console_listener
 from discord_cmd import setup_commands
 from vc import db, read_message
 from voicevox import voicevox
@@ -270,5 +272,11 @@ async def cleanup_disconnected_channels() -> None:
 
         await asyncio.sleep(300)
 
+threading.Thread(
+    target=console_listener,
+    name="console",
+    args=(client,),
+    daemon=True
+).start()
 
 client.run(Config.load_config()["discord"]["token"])
