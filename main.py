@@ -11,6 +11,7 @@ from loguru import logger
 from config import Config
 from console import console_listener
 from discord_cmd import setup_commands
+from earthquake import set_discord_client, websocket_client
 from vc import db, read_message
 from voicevox import voicevox
 
@@ -27,6 +28,9 @@ async def on_ready():
     if debug:
         logger.debug("デバッグモードが有効です")
     logger.info(f"{client.user} としてログインしました")
+
+    set_discord_client(client)
+    client.loop.create_task(websocket_client())
 
     await db.connect()
     if debug:

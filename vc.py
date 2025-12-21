@@ -170,11 +170,13 @@ async def read_message(
         message.lower(), await db.get_global_dictionary_replacements()
     )
 
-    voice_settings = current_voice_settings.get((guild.id, author.id))
-    if voice_settings is None and author:
-        voice_settings = await db.get_voice_settings(guild.id, author.id)
-        if voice_settings:
-            current_voice_settings[(guild.id, author.id)] = voice_settings
+    voice_settings = None
+    if author:
+        voice_settings = current_voice_settings.get((guild.id, author.id))
+        if voice_settings is None:
+            voice_settings = await db.get_voice_settings(guild.id, author.id)
+            if voice_settings:
+                current_voice_settings[(guild.id, author.id)] = voice_settings
 
     engine = "voicevox"
     voice_name = "2"
