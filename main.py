@@ -1,4 +1,5 @@
 import asyncio
+from math import log
 import platform
 import sys
 import threading
@@ -211,7 +212,16 @@ async def on_voice_state_update(
 
 @client.event
 async def on_message(message: discord.Message):
-    if message.guild is None or message.author.bot:
+    if message.author.bot:
+        return
+
+    if message.guild is None:
+        await message.channel.send(
+            embed=discord.Embed(
+                color=discord.Color.red(),
+                description="このBOTはここでは使用できません。",
+            )
+        )
         return
 
     if await db.is_user_muted(message.guild.id, message.author.id):
