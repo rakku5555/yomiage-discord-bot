@@ -211,7 +211,7 @@ async def on_voice_state_update(
 
 @client.event
 async def on_message(message: discord.Message):
-    if message.author.bot:
+    if message.guild is None or message.author.bot:
         return
 
     if await db.is_user_muted(message.guild.id, message.author.id):
