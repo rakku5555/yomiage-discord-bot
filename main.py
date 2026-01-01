@@ -1,5 +1,4 @@
 import asyncio
-from math import log
 import platform
 import sys
 import threading
