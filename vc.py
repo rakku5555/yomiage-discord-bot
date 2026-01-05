@@ -7,9 +7,9 @@ import warnings
 from collections import defaultdict
 from functools import lru_cache
 
-import aiohttp
 import discord
 import kanalizer
+from aiohttp import client_exceptions
 from loguru import logger
 
 import text_converters
@@ -77,7 +77,7 @@ async def speak_in_voice_channel(
 
         try:
             audio_data = await audio.get_audio()
-        except aiohttp.client_exceptions.ClientConnectorError:
+        except client_exceptions.ClientConnectorError:
             audio_data = await aquestalk(message, "aquestalk10", "F1E").get_audio()
         except RuntimeError:
             audio_data = await aquestalk(message, "aquestalk10", "F1E").get_audio()
@@ -139,12 +139,14 @@ async def process_message_queue(guild_id: int):
 
 async def read_message(
     message: str | discord.Message,
-    guild: discord.Guild = None,
-    author: discord.Member = None,
-    channel: discord.TextChannel = None,
+    guild: discord.Guild | None = None,
+    author: discord.Member | None = None,
 ) -> None:
     if not isinstance(message, str):
         if message.author.bot:
+            return
+
+        if message.guild is None:
             return
 
         channels = await db.get_read_channels()
@@ -155,12 +157,14 @@ async def read_message(
             return
 
         guild = message.guild
-        author = message.author
-        channel = message.channel
+        author = message.author if isinstance(message.author, discord.Member) else None
         message = message.content.replace("\n", " ")
 
+    if guild is None:
+        return
+
     voice_client = guild.voice_client
-    if voice_client is None or not voice_client.is_connected():
+    if voice_client is None or not isinstance(voice_client, discord.VoiceClient) or not voice_client.is_connected():
         return
 
     message = apply_replacements(
@@ -203,12 +207,12 @@ async def read_message(
 
     for channel_id_str in re.findall(r"<#(\d+)>", message):
         channel_id = int(channel_id_str)
-        channel = guild.get_channel(channel_id)
-        if channel:
+        found_channel = guild.get_channel(channel_id)
+        if found_channel and isinstance(found_channel, discord.TextChannel):
             cleaned_channel_name = re.sub(
                 r"[\U0001F300-\U0001F64F\U0001F680-\U0001F6FF\u2600-\u26FF\u2700-\u27BF]",
                 "",
-                channel.name,
+                found_channel.name,
             )
             message = message.replace(f"<#{channel_id_str}>", cleaned_channel_name)
 

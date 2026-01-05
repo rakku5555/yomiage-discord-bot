@@ -9,8 +9,8 @@ async def _shutdown(client):
     db = Database()
 
     try:
-        if getattr(db, "redis", None):
-            await db.redis.close()
+        if hasattr(db, "aioredis"):
+            await db.aioredis.close()
             logger.info("Redisを閉じました")
     except Exception as e:
         logger.error("Redisの終了エラー:", e)

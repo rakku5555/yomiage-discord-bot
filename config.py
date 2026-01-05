@@ -1,5 +1,5 @@
 import os
-from typing import Any
+from typing import Any, NoReturn
 
 import aiofiles
 import yaml
@@ -13,7 +13,7 @@ class Config:
     }
 
     @classmethod
-    def _handle_config_errors(cls, error: Exception) -> None:
+    def _handle_config_errors(cls, error: Exception) -> NoReturn:
         if isinstance(error, FileNotFoundError):
             raise FileNotFoundError(
                 cls._ERROR_MESSAGES["file_not_found"].format(cls._config_path)

@@ -52,7 +52,7 @@ async def on_ready():
                 logger.debug(f"{guild_id}のサーバーが見つかりませんでした")
             continue
         voice_channel = guild.get_channel(voice_channel_id)
-        if not voice_channel:
+        if not voice_channel or not isinstance(voice_channel, discord.VoiceChannel):
             await db.remove_read_channel(guild_id)
             if debug:
                 logger.debug(f"{guild.name}のボイスチャンネルが見つかりませんでした")
@@ -65,7 +65,8 @@ async def on_ready():
                     f"{guild.name}のボイスチャンネルのメンバーはいないため読み上げチャンネルから削除しました"
                 )
             continue
-        if not guild.voice_client or not guild.voice_client.is_connected():
+        voice_client = guild.voice_client
+        if not voice_client or not isinstance(voice_client, discord.VoiceClient) or not voice_client.is_connected():
             await voice_channel.connect(self_deaf=True)
             if debug:
                 logger.debug(f"{guild.name}のボイスチャンネルに接続しました")
@@ -87,7 +88,7 @@ async def on_ready():
 async def on_voice_state_update(
     member: discord.Member, before: discord.VoiceState, after: discord.VoiceState
 ):
-    if member.id == client.user.id:
+    if client.user and member.id == client.user.id:
         if (
             before.channel is not None
             and after.channel is not None
@@ -104,7 +105,7 @@ async def on_voice_state_update(
                     )
         return
 
-    if before.channel is None and after.channel is not None:
+    if before.channel is None and after.channel is not None and isinstance(after.channel, discord.VoiceChannel):
         autojoin = await db.get_autojoin(member.guild.id)
         if autojoin and after.channel.id == autojoin[0]:
             member_count = len([m for m in after.channel.members if not m.bot])
@@ -117,7 +118,7 @@ async def on_voice_state_update(
         if dynamic_joins:
             for text_channel_id in dynamic_joins:
                 text_channel = member.guild.get_channel(text_channel_id)
-                if text_channel.category_id != after.channel.category_id:
+                if text_channel and hasattr(text_channel, 'category_id') and text_channel.category_id != after.channel.category_id:
                     continue
 
                 non_bot_members = [m for m in after.channel.members if not m.bot]
@@ -126,7 +127,7 @@ async def on_voice_state_update(
 
                 await asyncio.sleep(1)
                 channel = member.guild.get_channel(after.channel.id)
-                if not channel:
+                if not channel or not isinstance(channel, discord.VoiceChannel):
                     break
 
                 non_bot_members = [m for m in channel.members if not m.bot]
@@ -142,10 +143,12 @@ async def on_voice_state_update(
                 break
 
     voice_client = member.guild.voice_client
-    if voice_client is None:
+    if voice_client is None or not isinstance(voice_client, discord.VoiceClient):
         return
 
     channel = voice_client.channel
+    if channel is None or not isinstance(channel, discord.VoiceChannel):
+        return
     member_count = len([m for m in channel.members if not m.bot])
 
     if voice_client.is_connected():
@@ -158,7 +161,6 @@ async def on_voice_state_update(
                 f"{member.display_name}が参加しました",
                 member.guild,
                 member,
-                after.channel,
             )
             if debug:
                 logger.debug(
@@ -173,7 +175,6 @@ async def on_voice_state_update(
                 f"{member.display_name}が退出しました",
                 member.guild,
                 member,
-                before.channel,
             )
             if debug:
                 logger.debug(
@@ -186,19 +187,20 @@ async def on_voice_state_update(
     read_channel = await db.get_read_channel(voice_client.guild.id)
     if not read_channel:
         if voice_client.is_connected():
-            await voice_client.disconnect()
+            await voice_client.disconnect(force=False)
         return
 
     _, chat_channel_id = read_channel
-    await voice_client.disconnect()
+    await voice_client.disconnect(force=False)
 
     if chat_channel_id:
         chat_channel = voice_client.guild.get_channel(chat_channel_id)
-        if chat_channel:
+        if chat_channel and isinstance(chat_channel, discord.TextChannel):
+            channel_mention = channel.mention if isinstance(channel, discord.VoiceChannel) else "ボイスチャンネル"
             await chat_channel.send(
                 embed=discord.Embed(
                     color=discord.Color.dark_blue(),
-                    description=f"{voice_client.channel.mention}からユーザーがいなくなったため退出しました",
+                    description=f"{channel_mention}からユーザーがいなくなったため退出しました",
                 )
             )
 
@@ -244,7 +246,7 @@ async def connect_to_voice_channel(
         await asyncio.wait_for(voice_channel.connect(self_deaf=True), timeout=30.0)
         await db.set_read_channel(guild.id, voice_channel.id, text_channel_id)
         chat_channel = guild.get_channel(text_channel_id)
-        if chat_channel:
+        if chat_channel and isinstance(chat_channel, discord.TextChannel):
             await chat_channel.send(
                 embed=discord.Embed(
                     color=discord.Color.dark_blue(),

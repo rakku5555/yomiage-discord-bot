@@ -3,11 +3,12 @@ import json
 from datetime import datetime
 
 import aiohttp
+import discord
 from loguru import logger
 
 from vc import read_message
 
-discord_client = None
+discord_client: discord.Client | None = None
 
 def convert_max_scale_to_intensity(max_scale: int):
     scale_map = {
@@ -63,7 +64,7 @@ async def earthquake_broadcast(earthquake):
         case -1:
             magnitude_text = "マグニチュードは不明"
         case _:
-            magnitude_text = f"マグニチュードは{earthquake["magnitude"]}"
+            magnitude_text = f"マグニチュードは{earthquake['magnitude']}"
 
     match earthquake["depth"]:
         case -1:
@@ -71,23 +72,26 @@ async def earthquake_broadcast(earthquake):
         case 0:
             depth_text = "深さはごく浅い"
         case _:
-            depth_text = f"深さは{earthquake["depth"]}キロメートル"
+            depth_text = f"深さは{earthquake['depth']}キロメートル"
 
     time_str = earthquake["time"]
     dt = datetime.strptime(time_str, "%Y/%m/%d %H:%M:%S")
 
     formatted_time = f"{dt.year}年{dt.month}月{dt.day}日 {dt.hour}時{dt.minute}分"
 
-    message = f"地震情報です。{formatted_time}に、{earthquake["name"]}で{earthquake["intensity"]}の地震が発生しました。{magnitude_text}、{depth_text}です。"
+    message = f"地震情報です。{formatted_time}に、{earthquake['name']}で{earthquake['intensity']}の地震が発生しました。{magnitude_text}、{depth_text}です。"
+
+    if discord_client is None:
+        return
 
     for guild in discord_client.guilds:
         voice_client = guild.voice_client
 
-        if voice_client is None or not voice_client.is_connected():
+        if voice_client is None or not isinstance(voice_client, discord.VoiceClient) or not voice_client.is_connected():
             continue
 
         try:
-            await read_message(message, guild, None, None)
+            await read_message(message, guild, None)
             logger.info(f"{guild.name}のボイスチャンネルに地震情報をブロードキャストしました")
         except Exception as e:
             logger.error(f"{guild.name}での地震情報ブロードキャストに失敗しました: {e}")

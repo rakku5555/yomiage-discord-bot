@@ -4,7 +4,7 @@ from config import Config
 
 
 class aivisspeech:
-    def __init__(self, text: str, speaker: int, pitch: int, speed: float):
+    def __init__(self, text: str, speaker: str, pitch: int, speed: float):
         self.config = Config.load_config()
         self.pitch = (pitch - 100) * 0.001
         self.speed = speed
@@ -47,8 +47,9 @@ class aivisspeech:
                     json=json_data,
                 )
                 if response.status != 200:
+                    error_data = await response.json()
                     raise Exception(
-                        f"synthesisのリクエストに失敗しました: {await response.json()['detail'][0]['msg']}"
+                        f"synthesisのリクエストに失敗しました: {error_data['detail'][0]['msg']}"
                     )
                 return await response.read()
             elif self.config["aivisspeech"]["edition"]["cloud"]:
@@ -77,4 +78,9 @@ class aivisspeech:
                         raise Exception("サーバーの接続に失敗しました")
                     case 504:
                         raise Exception("サーバーの接続にタイムアウトしました")
+                    case _:
+                        if response.status != 200:
+                            raise Exception(f"予期しないエラーが発生しました: HTTP {response.status}")
                 return await response.read()
+            else:
+                raise RuntimeError("aivisspeechのエンジンが有効になっていません")

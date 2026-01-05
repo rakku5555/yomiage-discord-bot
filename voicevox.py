@@ -146,7 +146,8 @@ class voicevox:
                 json=json_data,
             )
             if response.status != 200:
+                error_data = await response.json()
                 raise Exception(
-                    f"synthesisのリクエストに失敗しました: {await response.json()['detail'][0]['msg']}"
+                    f"synthesisのリクエストに失敗しました: {error_data['detail'][0]['msg']}"
                 )
             return await response.read()

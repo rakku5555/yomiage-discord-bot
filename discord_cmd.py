@@ -1,6 +1,8 @@
 import json
 import math
 import random
+from collections.abc import Callable
+from typing import Any
 
 import discord
 import jaconv
@@ -32,7 +34,7 @@ def setup_commands(tree: app_commands.CommandTree):
     async def join(interaction: discord.Interaction):
         await ensure_db_connection()
 
-        if interaction.user.voice is None:
+        if not isinstance(interaction.user, discord.Member) or interaction.user.voice is None:
             await interaction.response.send_message(
                 embed=discord.Embed(
                     color=discord.Color.red(),
@@ -43,6 +45,26 @@ def setup_commands(tree: app_commands.CommandTree):
             return
 
         voice_channel = interaction.user.voice.channel
+        if voice_channel is None or not isinstance(voice_channel, discord.VoiceChannel):
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    color=discord.Color.red(),
+                    description="ボイスチャンネルに接続していません。",
+                ),
+                ephemeral=True,
+            )
+            return
+
+        if interaction.guild_id is None or interaction.channel_id is None:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    color=discord.Color.red(),
+                    description="サーバーまたはチャンネル情報が取得できません。",
+                ),
+                ephemeral=True,
+            )
+            return
+
         try:
             await voice_channel.connect(self_deaf=True)
             await interaction.response.send_message(
@@ -68,7 +90,18 @@ def setup_commands(tree: app_commands.CommandTree):
     async def leave(interaction: discord.Interaction):
         await ensure_db_connection()
 
-        if interaction.guild.voice_client is None:
+        if interaction.guild is None or interaction.guild_id is None:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    color=discord.Color.red(),
+                    description="サーバー情報が取得できません。",
+                ),
+                ephemeral=True,
+            )
+            return
+
+        voice_client = interaction.guild.voice_client
+        if voice_client is None or not isinstance(voice_client, discord.VoiceClient):
             await interaction.response.send_message(
                 embed=discord.Embed(
                     color=discord.Color.red(),
@@ -89,7 +122,7 @@ def setup_commands(tree: app_commands.CommandTree):
                 if interaction.guild_id in reading_tasks:
                     del reading_tasks[interaction.guild_id]
                 del message_queues[interaction.guild_id]
-            await interaction.guild.voice_client.disconnect()
+            await voice_client.disconnect(force=False)
             await db.remove_read_channel(interaction.guild_id)
 
             await interaction.response.send_message(
@@ -125,6 +158,16 @@ def setup_commands(tree: app_commands.CommandTree):
     ):
         await ensure_db_connection()
 
+        if interaction.guild_id is None:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    color=discord.Color.red(),
+                    description="サーバー情報が取得できません。",
+                ),
+                ephemeral=True,
+            )
+            return
+
         try:
             await db.set_autojoin(interaction.guild_id, voice.id, text.id)
             await interaction.response.send_message(
@@ -150,6 +193,16 @@ def setup_commands(tree: app_commands.CommandTree):
     ):
         await ensure_db_connection()
 
+        if interaction.guild_id is None:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    color=discord.Color.red(),
+                    description="サーバー情報が取得できません。",
+                ),
+                ephemeral=True,
+            )
+            return
+
         try:
             autojoin = await db.get_autojoin(interaction.guild_id)
             if not autojoin:
@@ -172,7 +225,8 @@ def setup_commands(tree: app_commands.CommandTree):
                 )
                 return
 
-            await db.remove_autojoin(interaction.guild_id)
+            if interaction.guild_id is not None:
+                await db.remove_autojoin(interaction.guild_id)
             await interaction.response.send_message(
                 embed=discord.Embed(
                     color=discord.Color.green(),
@@ -192,6 +246,16 @@ def setup_commands(tree: app_commands.CommandTree):
     )
     async def autojoin_list(interaction: discord.Interaction):
         await ensure_db_connection()
+
+        if interaction.guild_id is None or interaction.guild is None:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    color=discord.Color.red(),
+                    description="サーバー情報が取得できません。",
+                ),
+                ephemeral=True,
+            )
+            return
 
         autojoin = await db.get_autojoin(interaction.guild_id)
         if not autojoin:
@@ -228,10 +292,10 @@ def setup_commands(tree: app_commands.CommandTree):
 
     try:
         with open("voice_character.json", encoding="utf-8") as f:
-            voice_characters = json.load(f)
+            voice_characters: dict[str, Any] = json.load(f)
     except Exception as e:
         logger.error(f"音声キャラクターの設定を読み込めませんでした: {str(e)}")
-        voice_characters = []
+        voice_characters = {}
 
     @tree.command(
         name="setvoice", description="ボイスキャラクターと読み上げ速度を設定します"
@@ -263,6 +327,16 @@ def setup_commands(tree: app_commands.CommandTree):
         lmd: int = 100,
     ):
         await ensure_db_connection()
+
+        if interaction.guild_id is None:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    color=discord.Color.red(),
+                    description="サーバー情報が取得できません。",
+                ),
+                ephemeral=True,
+            )
+            return
 
         if engine.startswith("aquestalk"):
             if speed == 1.0:
@@ -352,26 +426,27 @@ def setup_commands(tree: app_commands.CommandTree):
                     return
 
         try:
-            await db.set_voice_settings(
-                interaction.guild_id,
-                interaction.user.id,
-                engine,
-                voice,
-                pitch,
-                speed,
-                accent,
-                lmd,
-            )
-            update_voice_settings(
-                interaction.guild_id,
-                interaction.user.id,
-                engine,
-                voice,
-                pitch,
-                speed,
-                accent,
-                lmd,
-            )
+            if interaction.guild_id is not None:
+                await db.set_voice_settings(
+                    interaction.guild_id,
+                    interaction.user.id,
+                    engine,
+                    voice,
+                    pitch,
+                    speed,
+                    accent,
+                    lmd,
+                )
+                update_voice_settings(
+                    interaction.guild_id,
+                    interaction.user.id,
+                    engine,
+                    voice,
+                    pitch,
+                    speed,
+                    accent,
+                    lmd,
+                )
 
             voice_name = get_voice_name(engine, voice, voice_characters)
 
@@ -404,10 +479,16 @@ def setup_commands(tree: app_commands.CommandTree):
         current: str,
     ) -> list[app_commands.Choice[str]]:
         engine = interaction.namespace.engine
-        if not engine:
+        if not engine or engine not in engine_key:
             return []
 
-        voices = voice_characters[engine_key[engine]]
+        engine_name = engine_key[engine]
+        if engine_name not in voice_characters:
+            return []
+
+        voices = voice_characters[engine_name]
+        if not isinstance(voices, list):
+            return []
         choices = [
             app_commands.Choice(name=voice["name"], value=voice["value"])
             for voice in voices
@@ -419,7 +500,18 @@ def setup_commands(tree: app_commands.CommandTree):
 
     @tree.command(name="skip", description="現在の読み上げをすべてスキップします")
     async def skip(interaction: discord.Interaction):
-        if interaction.guild.voice_client is None:
+        if interaction.guild is None:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    color=discord.Color.red(),
+                    description="サーバー情報が取得できません。",
+                ),
+                ephemeral=True,
+            )
+            return
+
+        voice_client = interaction.guild.voice_client
+        if voice_client is None or not isinstance(voice_client, discord.VoiceClient):
             await interaction.response.send_message(
                 embed=discord.Embed(
                     color=discord.Color.red(),
@@ -429,7 +521,6 @@ def setup_commands(tree: app_commands.CommandTree):
             )
             return
 
-        voice_client = interaction.guild.voice_client
         if not voice_client.is_playing():
             await interaction.response.send_message(
                 embed=discord.Embed(
@@ -456,6 +547,16 @@ def setup_commands(tree: app_commands.CommandTree):
         to = jaconv.hira2kata(to)
         await ensure_db_connection()
 
+        if interaction.guild_id is None:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    color=discord.Color.red(),
+                    description="サーバー情報が取得できません。",
+                ),
+                ephemeral=True,
+            )
+            return
+
         try:
             await db.set_dictionary_replacement(interaction.guild_id, word, to)
             await interaction.response.send_message(
@@ -475,6 +576,16 @@ def setup_commands(tree: app_commands.CommandTree):
     @dict_group.command(name="list", description="登録されている単語の一覧を表示します")
     async def dict_list(interaction: discord.Interaction):
         await ensure_db_connection()
+
+        if interaction.guild_id is None:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    color=discord.Color.red(),
+                    description="サーバー情報が取得できません。",
+                ),
+                ephemeral=True,
+            )
+            return
 
         try:
             replacements = await db.get_dictionary_replacements(interaction.guild_id)
@@ -505,6 +616,16 @@ def setup_commands(tree: app_commands.CommandTree):
     @app_commands.describe(word="削除する単語")
     async def dict_remove(interaction: discord.Interaction, word: str):
         await ensure_db_connection()
+
+        if interaction.guild_id is None:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    color=discord.Color.red(),
+                    description="サーバー情報が取得できません。",
+                ),
+                ephemeral=True,
+            )
+            return
 
         try:
             replacements = await db.get_dictionary_replacements(interaction.guild_id)
@@ -602,6 +723,16 @@ def setup_commands(tree: app_commands.CommandTree):
     async def mute(interaction: discord.Interaction, user: discord.Member):
         await ensure_db_connection()
 
+        if interaction.guild_id is None:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    color=discord.Color.red(),
+                    description="サーバー情報が取得できません。",
+                ),
+                ephemeral=True,
+            )
+            return
+
         if user.bot:
             await interaction.response.send_message(
                 embed=discord.Embed(
@@ -646,6 +777,16 @@ def setup_commands(tree: app_commands.CommandTree):
     async def unmute(interaction: discord.Interaction, user: discord.Member):
         await ensure_db_connection()
 
+        if interaction.guild_id is None:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    color=discord.Color.red(),
+                    description="サーバー情報が取得できません。",
+                ),
+                ephemeral=True,
+            )
+            return
+
         if not await db.is_user_muted(interaction.guild_id, user.id):
             await interaction.response.send_message(
                 embed=discord.Embed(
@@ -677,6 +818,16 @@ def setup_commands(tree: app_commands.CommandTree):
     )
     async def mutelist(interaction: discord.Interaction):
         await ensure_db_connection()
+
+        if interaction.guild_id is None or interaction.guild is None:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    color=discord.Color.red(),
+                    description="サーバー情報が取得できません。",
+                ),
+                ephemeral=True,
+            )
+            return
 
         try:
             muted_users = await db.get_muted_users(interaction.guild_id)
@@ -719,6 +870,16 @@ def setup_commands(tree: app_commands.CommandTree):
     ):
         await ensure_db_connection()
 
+        if interaction.guild_id is None:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    color=discord.Color.red(),
+                    description="サーバー情報が取得できません。",
+                ),
+                ephemeral=True,
+            )
+            return
+
         try:
             await db.set_dynamic_join(interaction.guild_id, text.id)
             await interaction.response.send_message(
@@ -742,6 +903,16 @@ def setup_commands(tree: app_commands.CommandTree):
     ):
         await ensure_db_connection()
 
+        if interaction.guild_id is None:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    color=discord.Color.red(),
+                    description="サーバー情報が取得できません。",
+                ),
+                ephemeral=True,
+            )
+            return
+
         try:
             await db.remove_dynamic_join(interaction.guild_id, text.id)
             await interaction.response.send_message(
@@ -763,6 +934,16 @@ def setup_commands(tree: app_commands.CommandTree):
     )
     async def dynamic_join_list(interaction: discord.Interaction):
         await ensure_db_connection()
+
+        if interaction.guild_id is None or interaction.guild is None:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    color=discord.Color.red(),
+                    description="サーバー情報が取得できません。",
+                ),
+                ephemeral=True,
+            )
+            return
 
         try:
             dynamic_joins = await db.get_dynamic_joins(interaction.guild_id)
@@ -800,6 +981,16 @@ def setup_commands(tree: app_commands.CommandTree):
     async def change(interaction: discord.Interaction):
         await ensure_db_connection()
 
+        if interaction.guild_id is None or interaction.channel_id is None:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    color=discord.Color.red(),
+                    description="サーバーまたはチャンネル情報が取得できません。",
+                ),
+                ephemeral=True,
+            )
+            return
+
         try:
             read_channel = await db.get_read_channel(interaction.guild_id)
             if not read_channel:
@@ -832,20 +1023,36 @@ def setup_commands(tree: app_commands.CommandTree):
 
 
 def validate_voice_engine(
-    engine: str, voice: str, config: dict, voice_characters: dict
+    engine: str, voice: str, config: dict[str, Any], voice_characters: dict[str, Any]
 ) -> tuple[bool, str]:
     if not config["engine_enabled"][engine]:
         return False, f"{engine}は無効になっています。"
-    valid_voices = [v["value"] for v in voice_characters[engine_key[engine]]]
+    if engine not in engine_key:
+        return False, "無効なエンジンが指定されました。"
+    engine_name = engine_key[engine]
+    if engine_name not in voice_characters:
+        return False, f"{engine}の音声キャラクターが見つかりません。"
+    voices = voice_characters[engine_name]
+    if not isinstance(voices, list):
+        return False, f"{engine}の音声キャラクターの形式が正しくありません。"
+    valid_voices = [v["value"] for v in voices if isinstance(v, dict) and "value" in v]
     if voice not in valid_voices:
         return False, f"無効な{engine}の音声が指定されました。"
     return True, ""
 
 
-def get_voice_name(engine: str, voice: str, voice_characters: dict) -> str:
-    for v in voice_characters[engine_key[engine]]:
-        if v["value"] == voice:
-            return v["name"]
+def get_voice_name(engine: str, voice: str, voice_characters: dict[str, Any]) -> str:
+    if engine not in engine_key:
+        return ""
+    engine_name = engine_key[engine]
+    if engine_name not in voice_characters:
+        return ""
+    voices = voice_characters[engine_name]
+    if not isinstance(voices, list):
+        return ""
+    for v in voices:
+        if isinstance(v, dict) and v.get("value") == voice:
+            return v.get("name", "")
     return ""
 
 
@@ -859,7 +1066,7 @@ def create_dict_pagination_response(
     page_size = 10
     total_pages = math.ceil(len(items) / page_size)
 
-    def embed_factory(items, page, page_size, total_pages):
+    def embed_factory(items: list[tuple[str, str]], page: int, page_size: int, total_pages: int) -> discord.Embed:
         start = page * page_size
         end = start + page_size
         message = f"{title} (ページ {page + 1}/{total_pages}):\n"
@@ -868,8 +1075,13 @@ def create_dict_pagination_response(
         return discord.Embed(color=color, description=message)
 
     view = PaginationView(items, page_size, embed_factory)
-    view.children[0].disabled = True
-    view.children[1].disabled = total_pages <= 1
+    if len(view.children) >= 2:
+        prev_button = view.children[0]
+        next_button = view.children[1]
+        if isinstance(prev_button, Button):
+            prev_button.disabled = True  # type: ignore[attr-defined]
+        if isinstance(next_button, Button):
+            next_button.disabled = total_pages <= 1  # type: ignore[attr-defined]
     embed = embed_factory(items, 0, page_size, total_pages)
     return embed, view
 
@@ -877,9 +1089,9 @@ def create_dict_pagination_response(
 class PaginationView(View):
     def __init__(
         self,
-        items: list,
+        items: list[Any],
         page_size: int,
-        embed_factory: callable,
+        embed_factory: Callable[[list[Any], int, int, int], discord.Embed],
         *,
         timeout: float = 60,
     ):
@@ -900,14 +1112,24 @@ class PaginationView(View):
     async def prev(self, interaction: discord.Interaction, _: Button):
         if self.page > 0:
             self.page -= 1
-        self.children[0].disabled = self.page == 0
-        self.children[1].disabled = self.page >= self.total_pages - 1
+        if len(self.children) >= 2:
+            prev_button = self.children[0]
+            next_button = self.children[1]
+            if isinstance(prev_button, Button):
+                prev_button.disabled = self.page == 0  # type: ignore[attr-defined]
+            if isinstance(next_button, Button):
+                next_button.disabled = self.page >= self.total_pages - 1  # type: ignore[attr-defined]
         await self.update_embed(interaction)
 
     @discord.ui.button(label="次へ", style=discord.ButtonStyle.secondary, disabled=True)
     async def next(self, interaction: discord.Interaction, _: Button):
         if self.page < self.total_pages - 1:
             self.page += 1
-        self.children[0].disabled = self.page == 0
-        self.children[1].disabled = self.page >= self.total_pages - 1
+        if len(self.children) >= 2:
+            prev_button = self.children[0]
+            next_button = self.children[1]
+            if isinstance(prev_button, Button):
+                prev_button.disabled = self.page == 0  # type: ignore[attr-defined]
+            if isinstance(next_button, Button):
+                next_button.disabled = self.page >= self.total_pages - 1  # type: ignore[attr-defined]
         await self.update_embed(interaction)

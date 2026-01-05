@@ -1,6 +1,7 @@
 import json
 import os
 import warnings
+from typing import Any
 
 import aiofiles
 import aiosqlite
@@ -13,7 +14,13 @@ from config import Config
 
 
 class Database:
-    _instance = None
+    _instance: "Database | None" = None
+    pool: Any = None
+    connection: Any = None
+    config: dict[str, Any] = {}
+    read_channels_file: str = ""
+    aioredis: Any = None
+    use_file_fallback: bool = False
 
     def __new__(cls):
         if cls._instance is None:
@@ -22,6 +29,7 @@ class Database:
             cls._instance.connection = None
             cls._instance.config = Config.load_config()
             cls._instance.read_channels_file = "read_channels.json"
+            cls._instance.use_file_fallback = False
         return cls._instance
 
     async def connect(self) -> None:
@@ -76,7 +84,7 @@ class Database:
 
         try:
             keys = await self.aioredis.keys("read_channels:*")
-            result = {}
+            result: dict[int, tuple[int, int]] = {}
             for key in keys:
                 server_id = int(key.decode().split(":")[1])
                 data = await self.aioredis.hgetall(key)
@@ -109,8 +117,7 @@ class Database:
                 voice_channel = int(data[b"voice_channel"].decode())
                 chat_channel = int(data[b"chat_channel"].decode())
                 return (voice_channel, chat_channel)
-            else:
-                return None
+            return None
         except redis.exceptions.TimeoutError:
             self.use_file_fallback = True
             return await self._get_read_channel_file(server_id)
@@ -136,7 +143,7 @@ class Database:
         try:
             await self.aioredis.hset(
                 f"read_channels:{server_id}",
-                mapping={"voice_channel": voice_channel, "chat_channel": chat_channel},
+                mapping={"voice_channel": str(voice_channel), "chat_channel": str(chat_channel)},
             )
         except redis.exceptions.TimeoutError:
             self.use_file_fallback = True
@@ -217,9 +224,8 @@ class Database:
                 )
                 result = await cursor.fetchone()
                 if result:
-                    return result
-                else:
-                    return None
+                    return (int(result[0]), int(result[1]))
+                return None
         elif self.config["database"]["connection"] in ["mysql", "mariadb"]:
             async with self.pool.acquire() as conn, conn.cursor() as cursor:
                 await cursor.execute(
@@ -232,9 +238,8 @@ class Database:
                 )
                 result = await cursor.fetchone()
                 if result:
-                    return result
-                else:
-                    return None
+                    return (int(result[0]), int(result[1]))
+                return None
 
     async def remove_autojoin(self, server_id: int) -> None:
         if self.config["database"]["connection"] == "sqlite":
@@ -306,7 +311,7 @@ class Database:
 
     async def get_voice_settings(
         self, server_id: int, user_id: int
-    ) -> tuple[str, str, int, int, int, int] | None:
+    ) -> tuple[str, str, int, float, int, int] | None:
         if self.config["database"]["connection"] == "sqlite":
             async with self.connection.cursor() as cursor:
                 await cursor.execute(
@@ -319,9 +324,15 @@ class Database:
                 )
                 result = await cursor.fetchone()
                 if result:
-                    return result
-                else:
-                    return None
+                    return (
+                        str(result[0]),
+                        str(result[1]),
+                        int(result[2]),
+                        float(result[3]),
+                        int(result[4]),
+                        int(result[5]),
+                    )
+                return None
         elif self.config["database"]["connection"] in ["mysql", "mariadb"]:
             async with self.pool.acquire() as conn, conn.cursor() as cursor:
                 await cursor.execute(
@@ -334,9 +345,15 @@ class Database:
                 )
                 result = await cursor.fetchone()
                 if result:
-                    return result
-                else:
-                    return None
+                    return (
+                        str(result[0]),
+                        str(result[1]),
+                        int(result[2]),
+                        float(result[3]),
+                        int(result[4]),
+                        int(result[5]),
+                    )
+                return None
 
     async def set_dictionary_replacement(
         self, server_id: int, original_text: str, replacement_text: str
@@ -375,7 +392,7 @@ class Database:
                     (server_id,),
                 )
                 rows = await cursor.fetchall()
-                return {row[0]: row[1] for row in rows}
+                return {str(row[0]): str(row[1]) for row in rows}
         elif self.config["database"]["connection"] in ["mysql", "mariadb"]:
             async with self.pool.acquire() as conn, conn.cursor() as cursor:
                 await cursor.execute(
@@ -387,7 +404,8 @@ class Database:
                     (server_id,),
                 )
                 rows = await cursor.fetchall()
-                return {row[0]: row[1] for row in rows}
+                return {str(row[0]): str(row[1]) for row in rows}
+        return {}
 
     async def remove_dictionary_replacement(
         self, server_id: int, original_text: str
@@ -446,7 +464,7 @@ class Database:
                     FROM global_dictionary_replacements
                 """)
                 rows = await cursor.fetchall()
-                return {row[0]: row[1] for row in rows}
+                return {str(row[0]): str(row[1]) for row in rows}
         elif self.config["database"]["connection"] in ["mysql", "mariadb"]:
             async with self.pool.acquire() as conn, conn.cursor() as cursor:
                 await cursor.execute("""
@@ -454,7 +472,8 @@ class Database:
                         FROM global_dictionary_replacements
                     """)
                 rows = await cursor.fetchall()
-                return {row[0]: row[1] for row in rows}
+                return {str(row[0]): str(row[1]) for row in rows}
+        return {}
 
     # async def remove_global_dictionary_replacement(self, original_text: str) -> None:
     #    if self.config['database']['connection'] == 'sqlite':
@@ -530,7 +549,7 @@ class Database:
                     (server_id,),
                 )
                 rows = await cursor.fetchall()
-                return [row[0] for row in rows]
+                return [int(row[0]) for row in rows]
         elif self.config["database"]["connection"] in ["mysql", "mariadb"]:
             async with self.pool.acquire() as conn, conn.cursor() as cursor:
                 await cursor.execute(
@@ -542,7 +561,8 @@ class Database:
                     (server_id,),
                 )
                 rows = await cursor.fetchall()
-                return [row[0] for row in rows]
+                return [int(row[0]) for row in rows]
+        return []
 
     async def is_user_muted(self, server_id: int, user_id: int) -> bool:
         if self.config["database"]["connection"] == "sqlite":
@@ -569,6 +589,7 @@ class Database:
                 )
                 result = await cursor.fetchone()
                 return result is not None
+        return False
 
     async def set_dynamic_join(self, server_id: int, text_channel: int) -> None:
         if self.config["database"]["connection"] == "sqlite":
@@ -605,7 +626,7 @@ class Database:
                     (server_id,),
                 )
                 rows = await cursor.fetchall()
-                return [row[0] for row in rows]
+                return [int(row[0]) for row in rows]
         elif self.config["database"]["connection"] in ["mysql", "mariadb"]:
             async with self.pool.acquire() as conn, conn.cursor() as cursor:
                 await cursor.execute(
@@ -617,7 +638,8 @@ class Database:
                     (server_id,),
                 )
                 rows = await cursor.fetchall()
-                return [row[0] for row in rows]
+                return [int(row[0]) for row in rows]
+        return []
 
     async def remove_dynamic_join(self, server_id: int, text_channel: int) -> None:
         if self.config["database"]["connection"] == "sqlite":
