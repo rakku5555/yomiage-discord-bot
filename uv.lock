@@ -409,11 +409,11 @@ wheels = [
 
 [[package]]
 name = "jaconv"
-version = "0.4.1"
+version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/4d/49/239829acdddfe10836dc6606a7bceb131b2c151512cb66a28ce167a1cfa8/jaconv-0.4.1.tar.gz", hash = "sha256:d18898764a562304035a3af1b966bf3b1f73da8cb92ee7b75ad5b7762411cd28", size = 20277, upload-time = "2025-11-29T23:20:57.343Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/91/0e/9fffaacda59bdfa479372c71d18d72968d2af5a36a5a2086b02a60124b98/jaconv-0.5.0.tar.gz", hash = "sha256:53f6f968276846716f0f37100a6d5c7308cfa1e0c714eb41287d5bb09345c40f", size = 21816, upload-time = "2026-02-08T11:15:57.07Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/07/30/dcf9c45aca696c44d37f69f167c6ceae3e58cca853031836d5a0a7c58f3b/jaconv-0.4.1-py3-none-any.whl", hash = "sha256:98d42263225f0c1b780c6428f3ac65b96d652248929d1757520afef90687c2d7", size = 15958, upload-time = "2025-11-29T23:20:55.907Z" },
+    { url = "https://files.pythonhosted.org/packages/3b/da/9657d637bcacdbaf6a914ce504000da5639f9d945f8d3552a940f021d6c0/jaconv-0.5.0-py3-none-any.whl", hash = "sha256:2914114fe761ca49fc7089e25e6ad4a400c26f262ffce84e13b176916b71610a", size = 16831, upload-time = "2026-02-08T11:15:55.322Z" },
 ]
 
 [[package]]
