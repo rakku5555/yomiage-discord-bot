@@ -1,0 +1,27 @@
+debug: false
+discord:
+  token: null
+  max_length: 300
+database:
+  path: bot.db
+redis:
+  host: localhost
+  port: 6379
+  db: 0
+  passwd: null
+engine_enabled:
+  aquestalk1: false
+  aquestalk2: false
+  aquestalk10: false
+  voicevox: true
+  aivisspeech: false
+voicevox:
+  url: http://localhost:50021
+aivisspeech:
+  url: http://localhost:10101
+  apikey: null
+  edition:
+    engine: false
+    cloud: true
+aquestalk:
+  url: http://localhost:8000

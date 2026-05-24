@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  JAVA_VERSION: '21'
+  PROJECT_NAME: yomiage-discord-bot
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x64
+            runner: windows-latest
+          - platform: linux-x64
+            runner: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set version from tag
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=${VERSION}" >> "${GITHUB_ENV}"
+
+      - name: Build jar
+        shell: bash
+        run: |
+          if [[ "${RUNNER_OS}" == "Windows" ]]; then
+            ./gradlew.bat jar -PreleaseVersion="${VERSION}" --no-daemon
+          else
+            chmod +x gradlew
+            ./gradlew jar -PreleaseVersion="${VERSION}" --no-daemon
+          fi
+
+      - name: Rename jar for platform
+        shell: bash
+        run: |
+          JAR="${{ env.PROJECT_NAME }}-${VERSION}.jar"
+          RELEASE_JAR="${{ env.PROJECT_NAME }}-${VERSION}-${{ matrix.platform }}.jar"
+          cp "build/libs/${JAR}" "${RELEASE_JAR}"
+          echo "RELEASE_JAR=${RELEASE_JAR}" >> "${GITHUB_ENV}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PROJECT_NAME }}-${{ matrix.platform }}
+          path: ${{ env.RELEASE_JAR }}
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Set version from tag
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "${GITHUB_ENV}"
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: yomiage-discord-bot ${{ github.ref_name }}
+          generate_release_notes: true
+          body: |
+            ## ダウンロード
+
+            | OS | ファイル |
+            |----|----------|
+            | Windows x64 | [${{ env.PROJECT_NAME }}-${{ env.VERSION }}-windows-x64.jar](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-windows-x64.jar) |
+            | Linux x64 | [${{ env.PROJECT_NAME }}-${{ env.VERSION }}-linux-x64.jar](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-linux-x64.jar) |
+
+            ## 必要環境
+
+            - Java ${{ env.JAVA_VERSION }} 以上
+            - 読み上げエンジン（[VOICEVOX](https://voicevox.hiroshiba.jp/) など、`config.yaml` で設定）
+            - Redis（任意、`config.yaml` で設定）
+
+          files: dist/*.jar
+          fail_on_unmatched_files: true

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <property name="CONSOLE_CHARSET" value="${console.charset:-UTF-8}"/>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <charset>${CONSOLE_CHARSET}</charset>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %highlight(%-5level){ERROR=bold red, WARN=yellow, INFO=green, DEBUG=cyan, TRACE=white} %cyan(%logger{36}) - %msg%n</pattern>
+        </encoder>
+    </appender>
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>
