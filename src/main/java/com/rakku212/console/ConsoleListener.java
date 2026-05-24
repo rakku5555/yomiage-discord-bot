@@ -6,6 +6,8 @@ import net.dv8tion.jda.api.JDA;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
+
 public final class ConsoleListener {
     private static final Logger log = LoggerFactory.getLogger(ConsoleListener.class);
 
@@ -31,6 +33,15 @@ public final class ConsoleListener {
         voiceChannelService.shutdown();
         database.close();
         jda.shutdown();
+        try {
+            if (!jda.awaitShutdown(Duration.ofSeconds(10))) {
+                jda.shutdownNow();
+                jda.awaitShutdown();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            jda.shutdownNow();
+        }
         log.info("Discordクライアントを閉じました");
     }
 }

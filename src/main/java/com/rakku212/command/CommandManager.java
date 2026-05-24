@@ -6,6 +6,7 @@ import com.rakku212.database.Database;
 import com.rakku212.util.EmbedUtil;
 import com.rakku212.util.JapaneseUtil;
 import com.rakku212.voice.VoiceChannelService;
+import com.rakku212.voice.VoiceConnectionHelper;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
@@ -73,7 +74,6 @@ public class CommandManager extends ListenerAdapter {
                 )
                 .queue(
                         success -> {
-                            log.info("{} 件のスラッシュコマンドを登録しました", success.size());
                             if (config.debug) {
                                 log.debug("コマンド同期完了");
                             }
@@ -208,8 +208,7 @@ public class CommandManager extends ListenerAdapter {
         }
 
         try {
-            voiceChannelService.clearQueue(guild.getIdLong());
-            audioManager.closeAudioConnection();
+            VoiceConnectionHelper.disconnect(guild, voiceChannelService);
             database.removeReadChannel(guild.getIdLong());
             reply(event, EmbedUtil.success("ボイスチャンネルから退出しました！"));
         } catch (Exception e) {

@@ -3,6 +3,7 @@ package com.rakku212.listener;
 import com.rakku212.config.BotConfig;
 import com.rakku212.database.Database;
 import com.rakku212.voice.VoiceChannelService;
+import com.rakku212.voice.VoiceConnectionHelper;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
@@ -120,7 +121,7 @@ public class BotListener extends ListenerAdapter {
         }
 
         database.getReadChannel(guild.getIdLong()).ifPresent(readChannel -> {
-            audioManager.closeAudioConnection();
+            VoiceConnectionHelper.disconnect(guild, voiceChannelService);
             TextChannel chatChannel = guild.getTextChannelById(readChannel.chatChannelId());
             if (chatChannel != null) {
                 chatChannel.sendMessageEmbeds(new EmbedBuilder()

@@ -13,7 +13,7 @@ import com.rakku212.voice.SoundCoreUtil;
 import com.rakku212.voice.VoiceChannelService;
 import moe.kyokobot.libdave.DaveFactory;
 import moe.kyokobot.libdave.NativeDaveFactory;
-import moe.kyokobot.libdave.jda.LDJDADaveSessionFactory;
+import com.rakku212.voice.dave.GuardedDaveSessionFactory;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.audio.AudioModuleConfig;
@@ -48,7 +48,7 @@ public final class Main {
         DaveFactory daveFactory = new NativeDaveFactory();
         JDA jda = JDABuilder.createDefault(config.discord.token)
                 .setAudioModuleConfig(new AudioModuleConfig()
-                        .withDaveSessionFactory(new LDJDADaveSessionFactory(daveFactory)))
+                        .withDaveSessionFactory(new GuardedDaveSessionFactory(daveFactory)))
                 .enableIntents(
                         GatewayIntent.GUILD_MESSAGES,
                         GatewayIntent.GUILD_VOICE_STATES,
