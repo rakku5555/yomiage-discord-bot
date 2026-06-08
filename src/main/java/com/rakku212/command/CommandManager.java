@@ -366,7 +366,7 @@ public class CommandManager extends ListenerAdapter {
             reply(event, EmbedUtil.error("ボイスチャンネルに接続していません。"), true);
             return;
         }
-        voiceChannelService.clearQueue(guild.getIdLong());
+        voiceChannelService.clearQueue(guild.getIdLong(), guild.getAudioManager());
         reply(event, EmbedUtil.success("読み上げを停止しました。"));
     }
 

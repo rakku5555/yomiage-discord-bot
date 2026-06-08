@@ -9,6 +9,7 @@ redis:
   port: 6379
   db: 0
   passwd: null
+  key_prefix: read_channels
 engine_enabled:
   aquestalk1: false
   aquestalk2: false

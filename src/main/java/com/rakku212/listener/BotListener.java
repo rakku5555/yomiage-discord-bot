@@ -210,7 +210,7 @@ public class BotListener extends ListenerAdapter {
                 log.debug("{}の自動参加に成功しました", guild.getName());
             }
         } catch (Exception e) {
-            log.error("{}のサーバーの自動参加に失敗しました: {}", guild.getName(), e.getMessage());
+            log.error("{}のサーバーの自動参加に失敗しました", guild.getName(), e);
         }
     }
 

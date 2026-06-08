@@ -46,4 +46,11 @@ public class PcmAudioPlayer implements AudioSendHandler {
     public CompletableFuture<Void> onFinished() {
         return finished;
     }
+
+    public void stop() {
+        buffer = null;
+        if (!finished.isDone()) {
+            finished.complete(null);
+        }
+    }
 }

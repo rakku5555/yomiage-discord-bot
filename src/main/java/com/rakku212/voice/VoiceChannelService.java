@@ -11,6 +11,7 @@ import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.managers.AudioManager;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,6 +40,8 @@ public class VoiceChannelService {
             "[\\x{1F300}-\\x{1F64F}\\x{1F680}-\\x{1F6FF}\\u2600-\\u26FF\\u2700-\\u27BF]",
             Pattern.UNICODE_CHARACTER_CLASS
     );
+    private static final Pattern CUSTOM_EMOJI_MENTION = Pattern.compile("<a?:[a-zA-Z0-9_]+:\\d+>");
+    private static final Pattern CUSTOM_EMOJI_SHORTCODE = Pattern.compile(":[a-zA-Z0-9_]+:");
 
     private final BotConfig config;
     private final Database database;
@@ -47,6 +50,8 @@ public class VoiceChannelService {
     private final Map<Long, BlockingQueue<QueuedMessage>> messageQueues = new ConcurrentHashMap<>();
     private final Map<Long, CompletableFuture<Void>> readingTasks = new ConcurrentHashMap<>();
     private final Map<Long, Database.VoiceSettings> currentVoiceSettings = new ConcurrentHashMap<>();
+    private final Map<Long, Long> skipVersion = new ConcurrentHashMap<>();
+    private final Map<Long, PcmAudioPlayer> activePlayers = new ConcurrentHashMap<>();
 
     public VoiceChannelService(Database database) {
         this.config = Config.load();
@@ -59,15 +64,26 @@ public class VoiceChannelService {
     }
 
     public void clearQueue(long guildId) {
-        BlockingQueue<QueuedMessage> queue = messageQueues.remove(guildId);
+        clearQueue(guildId, null);
+    }
+
+    public void clearQueue(long guildId, @Nullable AudioManager audioManager) {
+        skipVersion.merge(guildId, 1L, Long::sum);
+
+        PcmAudioPlayer player = activePlayers.remove(guildId);
+        if (player != null) {
+            player.stop();
+        }
+        if (audioManager != null) {
+            audioManager.setSendingHandler(null);
+        }
+
+        BlockingQueue<QueuedMessage> queue = messageQueues.get(guildId);
         if (queue != null) {
             queue.clear();
             queue.offer(QueuedMessage.poison());
         }
-        CompletableFuture<Void> task = readingTasks.remove(guildId);
-        if (task != null) {
-            task.cancel(true);
-        }
+        readingTasks.remove(guildId);
     }
 
     public void readMessage(Message message) {
@@ -131,6 +147,8 @@ public class VoiceChannelService {
 
         text = expandMentions(text, guild);
         text = URL_PATTERN.matcher(text).replaceAll("ユーアールエル省略");
+        text = stripCustomEmoji(text);
+        text = stripUnicodeEmoji(text);
         text = text.replace(" ", "");
 
         if (text.isEmpty()) {
@@ -157,24 +175,34 @@ public class VoiceChannelService {
         if (queue == null) {
             return;
         }
+        long versionAtStart = skipVersion.getOrDefault(guildId, 0L);
         try {
             while (true) {
                 QueuedMessage item = queue.take();
                 if (item.isPoison()) {
                     break;
                 }
-                speak(item);
+                if (isSkipped(guildId, versionAtStart)) {
+                    continue;
+                }
+                speak(item, guildId, versionAtStart);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (Exception e) {
             log.error("メッセージキュー処理エラー", e);
+        } finally {
+            readingTasks.remove(guildId);
         }
     }
 
-    private void speak(QueuedMessage item) {
+    private boolean isSkipped(long guildId, long versionAtStart) {
+        return skipVersion.getOrDefault(guildId, 0L) > versionAtStart;
+    }
+
+    private void speak(QueuedMessage item, long guildId, long versionAtStart) {
         AudioManager audioManager = item.audioManager();
-        if (!audioManager.isConnected()) {
+        if (!audioManager.isConnected() || isSkipped(guildId, versionAtStart)) {
             return;
         }
 
@@ -201,6 +229,9 @@ public class VoiceChannelService {
         try {
             VoiceEngine engine = engineFactory.getEngine(engineName);
             byte[] audioData = engine.synthesize(message, settings);
+            if (isSkipped(guildId, versionAtStart)) {
+                return;
+            }
             if (engineName.startsWith("aquestalk") && !"aquestalk10".equals(engineName)) {
                 audioData = SoundCoreUtil.pitchConvert(audioData, settings.pitch());
             }
@@ -209,34 +240,68 @@ public class VoiceChannelService {
                 log.debug("音声合成完了 - 所要時間: {}秒", seconds);
             }
             byte[] pcm = SoundCoreUtil.toDiscordPcm(audioData);
+            if (isSkipped(guildId, versionAtStart)) {
+                return;
+            }
 
             PcmAudioPlayer player = new PcmAudioPlayer();
-            player.load(pcm);
-            audioManager.setSendingHandler(player);
-            player.onFinished().get(10, TimeUnit.MINUTES);
-            if (config.debug) {
-                log.debug("音声再生が完了しました");
+            activePlayers.put(guildId, player);
+            try {
+                player.load(pcm);
+                audioManager.setSendingHandler(player);
+                player.onFinished().get(10, TimeUnit.MINUTES);
+                if (config.debug) {
+                    log.debug("音声再生が完了しました");
+                }
+            } catch (Exception playback) {
+                if (!isSkipped(guildId, versionAtStart)) {
+                    log.error("音声再生エラー。入力メッセージ: {}", message, playback);
+                }
+                return;
+            } finally {
+                activePlayers.remove(guildId, player);
             }
         } catch (Exception primary) {
-            log.error("音声合成エラー: {}\n入力メッセージ: {}", primary.getMessage(), message);
+            if (isSkipped(guildId, versionAtStart)) {
+                return;
+            }
+            log.error("音声合成エラー。入力メッセージ: {}", message, primary);
             try {
-                fallbackSpeak(message, audioManager);
+                fallbackSpeak(message, audioManager, guildId, versionAtStart);
             } catch (Exception fallback) {
-                log.error("フォールバック音声合成エラー", fallback);
+                if (!isSkipped(guildId, versionAtStart)) {
+                    log.error("フォールバック音声合成エラー", fallback);
+                }
             }
         }
     }
 
-    private void fallbackSpeak(String message, AudioManager audioManager) throws Exception {
+    private void fallbackSpeak(String message, AudioManager audioManager, long guildId, long versionAtStart)
+            throws Exception {
+        if (isSkipped(guildId, versionAtStart)) {
+            return;
+        }
         Database.VoiceSettings fallbackSettings = new Database.VoiceSettings(
                 "aquestalk10", "F1E", 100, 100, 100, 100
         );
         byte[] audioData = engineFactory.getEngine("aquestalk10").synthesize(message, fallbackSettings);
         byte[] pcm = SoundCoreUtil.toDiscordPcm(audioData);
+        if (isSkipped(guildId, versionAtStart)) {
+            return;
+        }
         PcmAudioPlayer player = new PcmAudioPlayer();
-        player.load(pcm);
-        audioManager.setSendingHandler(player);
-        player.onFinished().get(10, TimeUnit.MINUTES);
+        activePlayers.put(guildId, player);
+        try {
+            player.load(pcm);
+            audioManager.setSendingHandler(player);
+            player.onFinished().get(10, TimeUnit.MINUTES);
+        } catch (Exception playback) {
+            if (!isSkipped(guildId, versionAtStart)) {
+                log.error("フォールバック音声再生エラー。入力メッセージ: {}", message, playback);
+            }
+        } finally {
+            activePlayers.remove(guildId, player);
+        }
     }
 
     private String expandMentions(String message, Guild guild) {
@@ -269,11 +334,20 @@ public class VoiceChannelService {
         while (channelMatcher.find()) {
             String channelId = channelMatcher.group(1);
             TextChannel channel = guild.getTextChannelById(Long.parseLong(channelId));
-            String replacement = channel != null ? EMOJI_PATTERN.matcher(channel.getName()).replaceAll("") : "チャンネル";
+            String replacement = channel != null ? stripUnicodeEmoji(channel.getName()) : "チャンネル";
             channelMatcher.appendReplacement(buffer, replacement);
         }
         channelMatcher.appendTail(buffer);
         return buffer.toString();
+    }
+
+    private static String stripCustomEmoji(String text) {
+        text = CUSTOM_EMOJI_MENTION.matcher(text).replaceAll("");
+        return CUSTOM_EMOJI_SHORTCODE.matcher(text).replaceAll("");
+    }
+
+    private static String stripUnicodeEmoji(String text) {
+        return EMOJI_PATTERN.matcher(text).replaceAll("");
     }
 
     private static String applyReplacements(String message, Map<String, String> replacements) {

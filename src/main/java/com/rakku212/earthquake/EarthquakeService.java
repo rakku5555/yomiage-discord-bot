@@ -54,7 +54,7 @@ public class EarthquakeService implements WebSocket.Listener {
                 .buildAsync(WEBSOCKET_URI, this)
                 .whenComplete((socket, error) -> {
                     if (error != null) {
-                        log.error("WebSocket接続エラー: {}", error.getMessage());
+                        log.error("WebSocket接続エラー", error);
                         scheduleReconnect();
                     } else {
                         this.webSocket = socket;
@@ -114,7 +114,7 @@ public class EarthquakeService implements WebSocket.Listener {
 
     @Override
     public void onError(WebSocket webSocket, Throwable error) {
-        log.error("WebSocketエラー: {}", error.getMessage());
+        log.error("WebSocketエラー", error);
         scheduleReconnect();
     }
 

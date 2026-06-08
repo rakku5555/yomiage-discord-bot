@@ -7,7 +7,45 @@
             <pattern>%d{HH:mm:ss.SSS} [%thread] %highlight(%-5level){ERROR=bold red, WARN=yellow, INFO=green, DEBUG=cyan, TRACE=white} %cyan(%logger{36}) - %msg%n</pattern>
         </encoder>
     </appender>
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/error.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/error.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <encoder>
+            <charset>UTF-8</charset>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n%ex</pattern>
+        </encoder>
+    </appender>
+    <appender name="VOICE_ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/voice-error.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/voice-error.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <encoder>
+            <charset>UTF-8</charset>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n%ex</pattern>
+        </encoder>
+    </appender>
+    <logger name="com.rakku212.voice" level="INFO" additivity="true">
+        <appender-ref ref="VOICE_ERROR_FILE"/>
+    </logger>
+    <logger name="com.rakku212.listener" level="INFO" additivity="true">
+        <appender-ref ref="VOICE_ERROR_FILE"/>
+    </logger>
+    <logger name="com.rakku212.earthquake" level="INFO" additivity="true">
+        <appender-ref ref="VOICE_ERROR_FILE"/>
+    </logger>
     <root level="INFO">
         <appender-ref ref="STDOUT"/>
+        <appender-ref ref="ERROR_FILE"/>
     </root>
 </configuration>

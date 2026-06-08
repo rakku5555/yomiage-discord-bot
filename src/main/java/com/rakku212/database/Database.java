@@ -35,6 +35,7 @@ public class Database {
     private Connection connection;
     private RedisClient redisClient;
     private StatefulRedisConnection<String, String> redisConnection;
+    private String readChannelsKeyPrefix = "read_channels:";
     private boolean useFileFallback;
     private final Path readChannelsFile = Path.of("read_channels.json");
 
@@ -50,6 +51,8 @@ public class Database {
         connection = DriverManager.getConnection("jdbc:sqlite:" + path);
         Migration.createTables(connection);
 
+        readChannelsKeyPrefix = normalizeRedisKeyPrefix(config.redis.key_prefix);
+
         try {
             RedisURI.Builder builder = RedisURI.builder()
                     .withHost(config.redis.host)
@@ -62,7 +65,7 @@ public class Database {
             redisConnection = redisClient.connect();
             useFileFallback = false;
         } catch (Exception e) {
-            log.warn("Redisへの接続に失敗したため、ファイルフォールバックを使用します: {}", e.getMessage());
+            log.error("Redisへの接続に失敗したため、ファイルフォールバックを使用します", e);
             useFileFallback = true;
         }
     }
@@ -93,10 +96,10 @@ public class Database {
         }
         try {
             RedisCommands<String, String> commands = redisConnection.sync();
-            List<String> keys = commands.keys("read_channels:*");
+            List<String> keys = commands.keys(readChannelsKeyPrefix + "*");
             Map<Long, ReadChannel> result = new HashMap<>();
             for (String key : keys) {
-                long serverId = Long.parseLong(key.substring("read_channels:".length()));
+                long serverId = Long.parseLong(key.substring(readChannelsKeyPrefix.length()));
                 Map<String, String> data = commands.hgetall(key);
                 if (data != null && !data.isEmpty()) {
                     result.put(serverId, new ReadChannel(
@@ -107,7 +110,7 @@ public class Database {
             }
             return result;
         } catch (Exception e) {
-            log.warn("Redis読み取り失敗、ファイルフォールバックに切り替え: {}", e.getMessage());
+            log.error("Redis読み取り失敗、ファイルフォールバックに切り替え", e);
             useFileFallback = true;
             return getReadChannelsFromFile();
         }
@@ -118,7 +121,7 @@ public class Database {
             return Optional.ofNullable(getReadChannelsFromFile().get(serverId));
         }
         try {
-            Map<String, String> data = redisConnection.sync().hgetall("read_channels:" + serverId);
+            Map<String, String> data = redisConnection.sync().hgetall(readChannelsKeyPrefix + serverId);
             if (data == null || data.isEmpty()) {
                 return Optional.empty();
             }
@@ -127,6 +130,7 @@ public class Database {
                     Long.parseLong(data.get("chat_channel"))
             ));
         } catch (Exception e) {
+            log.error("Redis読み取り失敗 (serverId={})、ファイルフォールバックに切り替え", serverId, e);
             useFileFallback = true;
             return Optional.ofNullable(getReadChannelsFromFile().get(serverId));
         }
@@ -138,11 +142,12 @@ public class Database {
             return;
         }
         try {
-            redisConnection.sync().hset("read_channels:" + serverId, Map.of(
+            redisConnection.sync().hset(readChannelsKeyPrefix + serverId, Map.of(
                     "voice_channel", String.valueOf(voiceChannel),
                     "chat_channel", String.valueOf(chatChannel)
             ));
         } catch (Exception e) {
+            log.error("Redis書き込み失敗 (serverId={})、ファイルフォールバックに切り替え", serverId, e);
             useFileFallback = true;
             setReadChannelToFile(serverId, voiceChannel, chatChannel);
         }
@@ -154,8 +159,9 @@ public class Database {
             return;
         }
         try {
-            redisConnection.sync().del("read_channels:" + serverId);
+            redisConnection.sync().del(readChannelsKeyPrefix + serverId);
         } catch (Exception e) {
+            log.error("Redis削除失敗 (serverId={})、ファイルフォールバックに切り替え", serverId, e);
             useFileFallback = true;
             removeReadChannelFromFile(serverId);
         }
@@ -366,6 +372,18 @@ public class Database {
             ps.setLong(2, textChannel);
             ps.executeUpdate();
         }
+    }
+
+    private static String normalizeRedisKeyPrefix(String keyPrefix) {
+        String prefix = keyPrefix;
+        if (prefix == null || prefix.isBlank()) {
+            prefix = "read_channels";
+        }
+        prefix = prefix.strip();
+        while (prefix.endsWith(":")) {
+            prefix = prefix.substring(0, prefix.length() - 1);
+        }
+        return prefix + ":";
     }
 
     private Map<String, String> readStringMap(PreparedStatement ps) throws SQLException {

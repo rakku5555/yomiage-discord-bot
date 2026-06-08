@@ -26,6 +26,7 @@ public class BotConfig {
         public int port;
         public int db;
         public String passwd;
+        public String key_prefix;
     }
 
     public static class VoiceVoxConfig {
